@@ -54,7 +54,7 @@
   @if (files().length > 0) {
     <div style="margin-top: 20px;">
       <h3>Archivos ({{ completedFiles() }}/{{ totalFiles() }} completados)</h3>
-      
+
       @for (file of files(); track file.fileName; let i = $index) {
         <div style="border: 1px solid #ccc; margin: 10px 0; padding: 15px; border-radius: 5px;">
           <!-- Header del archivo -->
@@ -70,7 +70,7 @@
           <!-- Barra de progreso -->
           @if (file.percent > 0) {
             <div style="background: #f0f0f0; height: 10px; border-radius: 5px; margin: 10px 0;">
-              <div 
+              <div
                 style="background: #4CAF50; height: 100%; border-radius: 5px; transition: width 0.3s;"
                 [style.width.%]="file.percent">
               </div>
