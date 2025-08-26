@@ -335,50 +335,50 @@ export class UploaderComponent implements OnDestroy {
 
     // Videos
     if (['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv', 'm4v'].includes(extension)) {
-      return '🎬';
+      return 'Video';
     }
 
     // Imágenes
     if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp', 'ico'].includes(extension)) {
-      return '🖼️';
+      return 'Imagen';
     }
 
     // Documentos PDF
     if (extension === 'pdf') {
-      return '📕';
+      return 'PDF';
     }
 
     // Documentos de texto
     if (['doc', 'docx', 'txt', 'rtf', 'odt'].includes(extension)) {
-      return '📝';
+      return 'Documento';
     }
 
     // Hojas de cálculo
     if (['xls', 'xlsx', 'csv', 'ods'].includes(extension)) {
-      return '📊';
+      return 'Hoja de Cálculo';
     }
 
     // Presentaciones
     if (['ppt', 'pptx', 'odp'].includes(extension)) {
-      return '📋';
+      return 'Presentación';
     }
 
     // Audio
     if (['mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a'].includes(extension)) {
-      return '🎵';
+      return 'Audio';
     }
 
     // Archivos comprimidos
     if (['zip', 'rar', '7z', 'tar', 'gz'].includes(extension)) {
-      return '🗜️';
+      return 'Comprimido';
     }
 
     // Código
     if (['js', 'ts', 'html', 'css', 'py', 'java', 'cpp', 'c', 'php'].includes(extension)) {
-      return '💻';
+      return 'Código';
     }
 
     // Por defecto
-    return '📄';
+    return 'Archivo';
   }
 }

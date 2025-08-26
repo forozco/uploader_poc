@@ -15,9 +15,9 @@
       <div>
         <div>
           @if (isDragOver()) {
-            <span>📥</span>
+            <span>↓</span>
           } @else {
-            <span>📁</span>
+            <span>+</span>
           }
         </div>
         <div>
@@ -37,7 +37,7 @@
       </div>
     } @else {
       <div>
-        <div>📂 {{ totalFiles() }} archivo(s) seleccionado(s)</div>
+        <div>{{ totalFiles() }} archivo(s) seleccionado(s)</div>
         <div>Progreso global: {{ globalProgress() }}%</div>
         <button class="btn btn-secondary" (click)="clearFile($event)">Limpiar todo</button>
       </div>
@@ -71,7 +71,7 @@
               <strong>{{ file.fileName }}</strong>
               <span>({{ humanSize(file.totalBytes) }})</span>
             </div>
-            <button class="btn btn-danger" (click)="removeFile(i, $event)">❌</button>
+            <button class="btn btn-danger" (click)="removeFile(i, $event)">Eliminar</button>
           </div>
 
           <!-- Barra de progreso mejorada -->
@@ -110,25 +110,25 @@
               </span>
               <span>
                 @if (file.speedBps && file.uploading) {
-                  <span style="color: #2196F3;">⚡ {{ humanSize(file.speedBps) }}/s</span>
+                  <span style="color: #2196F3;">{{ humanSize(file.speedBps) }}/s</span>
                 }
                 @if (file.etaSeconds && file.uploading && file.etaSeconds > 0) {
-                  <span style="color: #FF9800; margin-left: 8px;">⏱️ {{ file.etaSeconds | number:'1.0-0' }}s</span>
+                  <span style="color: #FF9800; margin-left: 8px;">ETA: {{ file.etaSeconds | number:'1.0-0' }}s</span>
                 }
               </span>
             </div>
           }          <!-- Estados -->
           <div style="margin-top: 10px;">
             @if (file.uploading) {
-              <span style="color: blue;">🔄 Subiendo...</span>
+              <span style="color: blue;">Subiendo...</span>
             } @else if (file.assembling) {
-              <span style="color: orange;">🔧 Ensamblando archivo...</span>
+              <span style="color: orange;">Ensamblando archivo...</span>
             } @else if (file.done) {
-              <span style="color: green;">✅ Completado</span>
+              <span style="color: green;">Completado</span>
             } @else if (file.error) {
-              <span style="color: red;">❌ Error: {{ file.error }}</span>
+              <span style="color: red;">Error: {{ file.error }}</span>
             } @else {
-              <span style="color: gray;">⏳ Pendiente</span>
+              <span style="color: gray;">Pendiente</span>
             }
           </div>
         </div>
@@ -150,10 +150,10 @@
   @if (files().length > 0) {
     <div style="margin-top: 20px; padding: 10px; background: #f9f9f9; border-radius: 5px;">
       <strong>Estadísticas:</strong><br>
-      📁 Total: {{ totalFiles() }} archivos<br>
-      ✅ Completados: {{ completedFiles() }}<br>
-      🔄 Subiendo: {{ uploadingFiles() }}<br>
-      📊 Progreso global: {{ globalProgress() }}%
+      Total: {{ totalFiles() }} archivos<br>
+      Completados: {{ completedFiles() }}<br>
+      Subiendo: {{ uploadingFiles() }}<br>
+      Progreso global: {{ globalProgress() }}%
     </div>
   }
 </div>

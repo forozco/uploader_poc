@@ -176,13 +176,13 @@ export class UploadService {
     const totalBytes = file.size;
     let sentBytes = (uploadedSet.size * chunkSize);
 
-    console.log(`📁 Archivo: ${file.name}`);
-    console.log(`📊 Tamaño: ${(totalBytes / (1024 * 1024)).toFixed(2)} MB`);
-    console.log(`🔧 Configuración: Chunks de ${(chunkSize / (1024 * 1024)).toFixed(2)} MB, Concurrencia: ${config.concurrency}`);
-    console.log(`⚡ Chunks pendientes: ${chunks.length}/${totalChunks} (${uploadedSet.size} ya subidos)`);
+    console.log(`Archivo: ${file.name}`);
+    console.log(`Tamaño: ${(totalBytes / (1024 * 1024)).toFixed(2)} MB`);
+    console.log(`Configuración: Chunks de ${(chunkSize / (1024 * 1024)).toFixed(2)} MB, Concurrencia: ${config.concurrency}`);
+    console.log(`Chunks pendientes: ${chunks.length}/${totalChunks} (${uploadedSet.size} ya subidos)`);
 
-    if (uploadedSet.size === totalChunks) {
-      console.log(`✅ Archivo ya completamente subido`);
+    if (chunks.length === 0) {
+      console.log(`Archivo ya completamente subido`);
       this.progress$.next({ totalBytes, sentBytes: totalBytes, percent: 100 });
       return of(void 0);
     }
@@ -257,13 +257,13 @@ export class UploadService {
     const totalBytes = file.size;
     let sentBytes = (uploadedSet.size * chunkSize);
 
-    console.log(`📁 Archivo individual: ${file.name}`);
-    console.log(`📊 Tamaño: ${(totalBytes / (1024 * 1024)).toFixed(2)} MB`);
-    console.log(`🔧 Configuración: Chunks de ${(chunkSize / (1024 * 1024)).toFixed(2)} MB, Concurrencia: ${config.concurrency}`);
-    console.log(`⚡ Chunks pendientes: ${chunks.length}/${totalChunks} (${uploadedSet.size} ya subidos)`);
+    console.log(`Archivo individual: ${file.name}`);
+    console.log(`Tamaño: ${(totalBytes / (1024 * 1024)).toFixed(2)} MB`);
+    console.log(`Configuración: Chunks de ${(chunkSize / (1024 * 1024)).toFixed(2)} MB, Concurrencia: ${config.concurrency}`);
+    console.log(`Chunks pendientes: ${chunks.length}/${totalChunks} (${uploadedSet.size} ya subidos)`);
 
     if (uploadedSet.size === totalChunks) {
-      console.log(`✅ Archivo ya completamente subido`);
+      console.log(`Archivo ya completamente subido`);
       progressCallback({ totalBytes, sentBytes: totalBytes, percent: 100 });
       return of(void 0);
     }
@@ -296,7 +296,7 @@ export class UploadService {
       toArray(), // Esperar a que todos los chunks terminen
       concatMap(() => {
         // Notificar que comienza el ensamblado
-        console.log(`🔧 Ensamblando archivo: ${file.name}`);
+        console.log(`Ensamblando archivo: ${file.name}`);
         if (assemblingCallback) {
           assemblingCallback();
         }
