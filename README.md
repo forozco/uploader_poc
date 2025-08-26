@@ -1,25 +1,37 @@
-# Uploader POC - Chunked File Upload
+# Uploader POC - Multi-File Chunked Upload
 
 [![Angular](https://img.shields.io/badge/Angular-20.2.0-red?logo=angular)](https://angular.io/)
 [![Node.js](https://img.shields.io/badge/Node.js-Express-green?logo=node.js)](https://nodejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.8.2-blue?logo=typescrip---
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8.2-blue?logo=typescript)](https://www.typescriptlang.org/)
 
-**Autor**: Fernando Orozco  
-**Última actualización**: Agosto 2025
-
-**Prueba de concepto (POC)** para subir archivos de cualquier tamaño usando **chunked multipart uploads** con Angular 20 y backend Node.js/Express. Optimizada para archivos grandes (1GB - 10GB+) con configuración automática de chunks y concurrencia.
+**Prueba de concepto (POC)** para subir **múltiples archivos** de cualquier tamaño usando **chunked multipart uploads** con Angular 20 y backend Node.js/Express. Optimizada para archivos grandes (1GB - 10GB+) con configuración automática de chunks, concurrencia inteligente y gestión individual de progreso por archivo.
 
 ## Características Principales
 
+### Gestión de Múltiples Archivos
+- **Subida simultánea** de múltiples archivos con progreso individual
+- **Gestión independiente** de pausa/reanudación por archivo
+- **Estado granular** para cada archivo (subiendo, pausado, ensamblando, completado)
+- **Control individual** para cancelar archivos específicos
+
+### Optimización Inteligente
 - **Subida en chunks** con tamaño dinámico (5MB - 100MB según archivo)
 - **Configuración automática** basada en tamaño del archivo
-- **Concurrencia inteligente** (1-6 chunks simultáneos)
-- **Pausar/Reanudar/Cancelar** subidas en tiempo real
-- **Progreso detallado** con velocidad y tiempo estimado (ETA)
-- **Drag & Drop** y selección manual de archivos
-- **Interfaz reactiva** con Angular Signals
-- **Manejo robusto de errores** con reintentos automáticos
-- **Soporte para cualquier tipo de archivo**
+- **Concurrencia adaptativa** (1-6 chunks simultáneos por archivo)
+- **Reintentos automáticos** con backoff exponencial
+
+### Experiencia de Usuario Avanzada
+- **Progreso detallado** con velocidad y tiempo estimado (ETA) por archivo
+- **Drag & Drop múltiple** y selección manual de archivos
+- **Interfaz reactiva** con Angular Signals y effects
+- **Pausar/Reanudar/Cancelar** subidas globales o individuales
+- **Estados visuales** claros (subiendo, ensamblando, completado, error)
+
+### Robustez y Confiabilidad
+- **Manejo robusto de errores** con recuperación automática
+- **Soporte para cualquier tipo de archivo** y tamaño
+- **Detección de pausa inteligente** durante la subida de chunks
+- **Limpieza automática** de archivos temporales en el servidor
 
 ## Arquitectura del Proyecto
 
@@ -45,10 +57,11 @@ uploader_poc/
 
 ### Frontend (Angular 20)
 - **Framework**: Angular 20.2.0 con componentes standalone
-- **Reactive State**: Angular Signals para UI reactiva
+- **Reactive State**: Angular Signals para UI reactiva con effects automáticos
 - **HTTP Client**: HttpClient para comunicación con el backend
-- **RxJS**: Observables para manejo asíncrono de streams
-- **TypeScript**: 5.8.2 para tipado estático
+- **RxJS**: Observables para manejo asíncrono de streams y concurrencia
+- **TypeScript**: 5.8.2 para tipado estático y interfaces robustas
+- **Multi-File Management**: Gestión de estado individual por archivo
 
 ### Backend (Node.js)
 - **Runtime**: Node.js con Express 4.18.2
@@ -104,11 +117,22 @@ La aplicación estará disponible en **http://localhost:4200**
 
 ### 3. Uso de la Aplicación
 
-1. **Selección de archivo**: Arrastra y suelta o haz clic para seleccionar
-2. **Configuración automática**: El sistema optimiza chunks según el tamaño
-3. **Subida**: Haz clic en "Subir" para iniciar el proceso
-4. **Control total**: Pausa, reanuda o cancela en cualquier momento
-5. **Monitoreo**: Observa progreso, velocidad y tiempo estimado en tiempo real
+#### Gestión de Múltiples Archivos
+1. **Selección múltiple**: Arrastra varios archivos o selecciona múltiples desde el explorador
+2. **Vista de cola**: Visualiza todos los archivos en cola con su estado individual
+3. **Configuración automática**: El sistema optimiza chunks según el tamaño de cada archivo
+4. **Control granular**: Inicia, pausa, reanuda o cancela archivos individuales
+
+#### Flujo de Subida
+1. **Subida batch**: Haz clic en "Subir Todos" para procesar toda la cola
+2. **Subida individual**: Controla cada archivo por separado
+3. **Monitoreo avanzado**: Observa progreso, velocidad y ETA por archivo
+4. **Estados visuales**: Identifica rápidamente el estado de cada archivo
+   - **Pendiente**: Archivo en cola esperando subida
+   - **Subiendo**: Chunks siendo enviados al servidor
+   - **Ensamblando**: Servidor uniendo chunks en archivo final
+   - **Completado**: Archivo procesado exitosamente
+   - **Error**: Problema durante la subida (con reintentos automáticos)
 
 ---
 
@@ -173,7 +197,7 @@ Ensambla todos los chunks en el archivo final.
 
 ---
 
-## Flujo de Trabajo
+## Flujo de Trabajo Multi-Archivo
 
 ```mermaid
 sequenceDiagram
@@ -182,39 +206,53 @@ sequenceDiagram
     participant S as UploadService
     participant B as Backend
     
-    U->>F: Selecciona archivo
-    F->>S: initUpload(file)
-    S->>B: POST /api/uploads/init
-    B-->>S: {uploadId, chunkSize}
+    U->>F: Selecciona múltiples archivos
+    F->>F: Agrega archivos a cola
     
-    S->>S: Divide archivo en chunks
-    
-    loop Para cada chunk (con concurrencia)
-        S->>B: POST /api/uploads/:id/chunk
-        B-->>S: {ok: true}
-        S->>F: Actualiza progreso
+    loop Para cada archivo en cola
+        U->>F: Inicia subida individual
+        F->>S: initUpload(file)
+        S->>B: POST /api/uploads/init
+        B-->>S: {uploadId, chunkSize}
+        
+        S->>S: Divide archivo en chunks
+        
+        loop Para cada chunk (con concurrencia)
+            S->>B: POST /api/uploads/:id/chunk
+            B-->>S: {ok: true}
+            S->>F: Actualiza progreso individual
+        end
+        
+        S->>B: POST /api/uploads/:id/complete
+        B->>B: Ensambla chunks
+        B-->>S: {filePath, ok: true}
+        S->>F: Archivo completado
+        F->>F: Actualiza estado individual
     end
     
-    S->>B: POST /api/uploads/:id/complete
-    B->>B: Ensambla chunks
-    B-->>S: {filePath, ok: true}
-    S->>F: Subida completada
-    F->>U: Muestra éxito
+    F->>U: Todos los archivos procesados
 ```
 
 ## Métricas de Rendimiento
 
-### Configuraciones Testadas
+### Configuraciones Testadas (Por Archivo)
 - **Archivos pequeños** (< 50MB): 5MB chunks, 6 concurrent → ~30-60s
 - **Videos medianos** (500MB): 10MB chunks, 4 concurrent → ~2-5 min
 - **Archivos grandes** (2GB): 25MB chunks, 3 concurrent → ~8-15 min
 - **Videos 4K** (5GB+): 50MB chunks, 2 concurrent → ~20-40 min
 
+### Gestión de Múltiples Archivos
+- **5-10 archivos simultáneos**: Rendimiento óptimo sin saturar conexión
+- **Gestión de memoria**: Chunks procesados de forma streaming (no almacenados en RAM)
+- **Balanceador inteligente**: Evita sobrecargar el servidor con demasiados chunks concurrentes
+- **Recuperación granular**: Errores en un archivo no afectan otros en proceso
+
 ### Factores que Afectan el Rendimiento
-- **Velocidad de conexión**: Principal limitante
-- **Concurrencia**: Más chunks = mayor velocidad, pero también más carga
-- **Tamaño de chunk**: Chunks grandes = menos overhead de red
-- **Tipo de archivo**: Videos/binarios vs. texto compresible
+- **Velocidad de conexión**: Principal limitante para múltiples archivos
+- **Concurrencia por archivo**: Optimizada automáticamente según tamaño
+- **Número de archivos simultáneos**: Recomendado máximo 10 archivos grandes
+- **Memoria del navegador**: Gestión eficiente con streaming de chunks
+- **Capacidad del servidor**: Escalable con load balancing
 
 ---
 
@@ -225,20 +263,32 @@ sequenceDiagram
 **Frontend - UploadService** (`src/app/services/upload.service.ts`)
 - Configuración automática basada en tamaño de archivo
 - Manejo de estado reactivo con BehaviorSubjects
-- Pipeline RxJS para concurrencia controlada
+- Pipeline RxJS para concurrencia controlada por archivo
 - Cálculo de métricas en tiempo real (velocidad, ETA)
+- **Nuevos métodos para múltiples archivos**:
+  - `uploadFileMultipartWithProgress()`: Progreso individual por archivo
+  - Callbacks de progreso y ensamblado por archivo
+  - Gestión independiente de pausa/reanudación
 
 **Frontend - UploaderComponent** (`src/app/uploader/uploader.component.ts`)
-- UI reactiva con Angular Signals
-- Soporte para Drag & Drop
-- Controles de pausa/reanudación/cancelación
-- Formateo automático de tamaños y tiempos
+- **Gestión de múltiples archivos** con signals y effects
+- UI reactiva con estado individual por archivo
+- Soporte para Drag & Drop múltiple
+- Controles granulares de pausa/reanudación/cancelación
+- **Nuevas interfaces**:
+  - `FileUploadState`: Estado completo por archivo
+  - `addFiles()`: Agregar múltiples archivos a la cola
+  - Estados visuales avanzados (subiendo, ensamblando, etc.)
 
 **Backend** (`index.ts`)
 - Endpoints RESTful para gestión de chunks
-- Almacenamiento temporal seguro
+- Almacenamiento temporal seguro por archivo
 - Ensamblado secuencial con limpieza automática
 - Sanitización de nombres de archivo
+- **Soporte mejorado**:
+  - Manejo concurrente de múltiples sesiones de upload
+  - Validación robusta de chunks y metadatos
+  - Logs detallados para debugging
 
 ### Testing Manual
 ```bash
@@ -247,12 +297,45 @@ curl -X POST http://localhost:3000/api/uploads/init \
   -H "Content-Type: application/json" \
   -d '{"fileName":"test.pdf","fileSize":1024,"mimeType":"application/pdf"}'
 
-# Frontend - Console debug
+# Frontend - Console debug para múltiples archivos
 # Abre DevTools y monitorea:
-# - Network tab para chunks individuales
-# - Console para logs de progreso
-# - Application storage para estado
+# - Network tab para chunks individuales de cada archivo
+# - Console para logs de progreso por archivo
+# - Application storage para estado de la cola
+# - Performance tab para monitorear memoria con múltiples archivos
+
+# Testing de concurrencia
+# 1. Selecciona 5-10 archivos de diferentes tamaños
+# 2. Inicia subida de todos simultáneamente
+# 3. Prueba pausar/reanudar archivos individuales
+# 4. Verifica que errores en un archivo no afecten otros
 ```
+
+## Nuevas Funcionalidades Implementadas
+
+### Multi-File Upload
+- **Cola de archivos**: Gestión completa de múltiples archivos en una sola interfaz
+- **Progreso individual**: Cada archivo mantiene su propio estado y progreso
+- **Control granular**: Pausa, reanuda, cancela archivos específicos
+- **Estados avanzados**: Pendiente → Subiendo → Ensamblando → Completado/Error
+
+### Mejoras en el UploadService
+- **Nuevos métodos**: `uploadFileMultipartWithProgress()` para callbacks individuales
+- **Progreso por archivo**: No interfiere con el estado global del servicio
+- **Callbacks especializados**: Progreso y ensamblado con datos específicos por archivo
+- **Gestión de memoria optimizada**: Chunks procesados en streaming
+
+### Interfaz Mejorada
+- **Angular 20 Effects**: Gestión automática de estado reactivo
+- **Signals avanzados**: Estado individual y global sincronizado
+- **Drag & Drop múltiple**: Soporte nativo para múltiples archivos
+- **Indicadores visuales**: Estados claros para cada archivo en la cola
+
+### Robustez Empresarial
+- **Error handling granular**: Errores por archivo no afectan la cola completa
+- **Reintentos inteligentes**: Configuración adaptativa según el tipo de error
+- **Logs detallados**: Debugging mejorado para entornos de producción
+- **Cleanup automático**: Gestión de memoria y limpieza de temporales
 
 ---
 
@@ -279,11 +362,16 @@ curl -X POST http://localhost:3000/api/uploads/init \
 - [ ] Dashboard de uso y estadísticas
 
 ### Funcionalidades Avanzadas
-- [ ] Resumeable uploads (reanudar después de cierre de navegador)
-- [ ] Compresión automática de archivos
-- [ ] Preview de archivos subidos
-- [ ] Compartir archivos con links temporales
-- [ ] Integración con sistemas de almacenamiento empresarial
+- **Multi-file resume**: Reanudar múltiples archivos después del cierre del navegador
+- **Batch operations**: Operaciones en lote (pausar todos, cancelar todos, etc.)
+- **File deduplication**: Detección automática de archivos duplicados
+- **Progress analytics**: Estadísticas detalladas de velocidad y eficiencia
+- **Drag & drop folders**: Soporte para arrastrar carpetas completas
+- **File preview system**: Vista previa de archivos subidos
+- **Smart retry strategies**: Estrategias de reintento específicas por tipo de error
+- **Bandwidth optimization**: Adaptación automática según velocidad de conexión
+- **Parallel processing**: Procesamiento paralelo optimizado en el servidor
+- **Real-time notifications**: Notificaciones push de estado por archivo
 
 ---
 
@@ -299,25 +387,21 @@ Las contribuciones son bienvenidas. Por favor:
 5. Abre un Pull Request
 
 ### Roadmap
-- [ ] Tests unitarios y de integración
-- [ ] Docker containers para deployment
-- [ ] Documentación de API con Swagger
-- [ ] Ejemplo de integración con AWS S3
-- [ ] Tutorial paso a paso en video
-
-### Licencia
-Este proyecto está bajo la licencia MIT. Ver `LICENSE` para más detalles.
-
-### Agradecimientos
-- **Angular Team** - Por el framework y las nuevas Signals API
-- **Express.js** - Por la simplicidad en el backend
-- **Multer** - Por el manejo elegante de multipart uploads
-- **RxJS** - Por las primitivas reactivas potentes
+- [ ] **Tests unitarios y de integración** para múltiples archivos
+- [ ] **Docker containers** para deployment escalable
+- [ ] **Documentación de API** con Swagger/OpenAPI
+- [ ] **WebSocket integration** para notificaciones en tiempo real
+- [ ] **Ejemplo de integración** con AWS S3 multipart
+- [ ] **Tutorial paso a paso** con casos de uso empresariales
+- [ ] **Performance benchmarks** con múltiples archivos grandes
+- [ ] **Mobile optimization** para dispositivos móviles
+- [ ] **Plugin system** para extensiones personalizadas
+- [ ] **Analytics dashboard** para métricas de uso
 
 ---
 
-� **Autor**: Fernando Orozco  
-🤖 **Asistencia**: GitHub Copilot  
-📅 **Última actualización**: Agosto 2025
+**Autor**: Fernando Orozco  
+**Última actualización**: Agosto 2025  
+**Versión**: 2.0 - Multi-File Upload
 
-> 💡 **Nota**: Esta es una POC educativa. Para entornos de producción, considera las mejoras de seguridad y escalabilidad mencionadas arriba.
+> **Nota**: Esta es una POC desarrollada para una aplicación empresarial con funcionalidad de múltiples archivos. Para entornos de producción, considera las mejoras de seguridad y escalabilidad mencionadas arriba.
