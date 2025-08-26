@@ -1,3 +1,4 @@
+
 import { Component, signal, inject, OnDestroy } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 // RXJS ASYNC: Operadores para programación reactiva asíncrona
@@ -104,7 +105,18 @@ export class UploaderComponent implements OnDestroy {
   }
 
   /**
-   * Inicia la subida de todos los archivos pendientes
+   * Inicia el proceso de subida ASÍNCRONO
+   * 
+   * ASINCRONÍA:
+   * - Pipeline reactivo RxJS (Observable streams)
+   * - Operaciones no bloqueantes en el hilo principal
+   * - Manejo de eventos asincrónicos (success/error)
+   * - Actualizaciones de UI en tiempo real vía signals
+   * 
+   * Pipeline reactivo:
+   * 1. Inicializa la sesión en el servidor (HTTP async)
+   * 2. Inicia la subida multipart (chunks paralelos async)
+   * 3. Maneja errores y completado (callbacks async)
    */
   start() {
     const files = this.files();
@@ -224,9 +236,14 @@ export class UploaderComponent implements OnDestroy {
     this.globalUploading.set(false);
   }
 
+  // MÉTODOS ASÍNCRONOS PARA DRAG & DROP
+  // Los eventos DOM son inherentemente asincrónicos (event loop)
+
   /**
    * Maneja el evento dragover (cuando se arrastra sobre la zona)
    * ASYNC: Event handler no bloqueante del DOM event loop
+   * 
+   * @param event - Evento de drag
    */
   onDragOver(event: DragEvent) {
     event.preventDefault();
@@ -237,6 +254,8 @@ export class UploaderComponent implements OnDestroy {
   /**
    * Maneja el evento dragleave (cuando se sale de la zona)
    * ASYNC: Event handler no bloqueante del DOM event loop
+   * 
+   * @param event - Evento de drag
    */
   onDragLeave(event: DragEvent) {
     event.preventDefault();
@@ -247,6 +266,8 @@ export class UploaderComponent implements OnDestroy {
   /**
    * Maneja el evento drop (cuando se suelta el archivo)
    * ASYNC: Event handler con procesamiento asíncrono de archivos
+   * 
+   * @param event - Evento de drop con los archivos
    */
   onDrop(event: DragEvent) {
     event.preventDefault();
@@ -261,6 +282,8 @@ export class UploaderComponent implements OnDestroy {
 
   /**
    * Limpia todos los archivos y resetea el estado
+   * 
+   * @param event - Evento del botón/acción
    */
   clearFile(event: Event) {
     event.stopPropagation();
@@ -270,6 +293,9 @@ export class UploaderComponent implements OnDestroy {
 
   /**
    * Remueve un archivo específico de la lista
+   * 
+   * @param fileIndex - Índice del archivo a remover
+   * @param event - Evento del botón
    */
   removeFile(fileIndex: number, event: Event) {
     event.stopPropagation();
@@ -280,6 +306,9 @@ export class UploaderComponent implements OnDestroy {
 
   /**
    * Convierte bytes a formato legible (KB, MB, GB, TB)
+   * 
+   * @param n - Número de bytes
+   * @returns String formateado (ej: "1.5 MB")
    */
   humanSize(n: number | undefined) {
     if (n == null) return '';
@@ -291,6 +320,9 @@ export class UploaderComponent implements OnDestroy {
 
   /**
    * Obtiene el emoji apropiado según la extensión del archivo
+   * 
+   * @param fileName - Nombre del archivo con extensión
+   * @returns Emoji representativo del tipo de archivo
    */
   getFileIcon(fileName: string): string {
     const extension = fileName.split('.').pop()?.toLowerCase() || '';

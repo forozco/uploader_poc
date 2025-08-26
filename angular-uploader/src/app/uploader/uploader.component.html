@@ -1,6 +1,6 @@
 <div>
-  <h2>POC Uploader usando Chunk para la manipulacion de Archivos en Multipart Asíncrono (Angular 20)</h2>
-  <p>Configuración automática: PDFs ligeros, videos pesados, cualquier tamaño</p>
+  <h2>POC Multi-Uploader usando Chunk para la manipulacion de Archivos en Multipart Asíncrono (Angular 20)</h2>
+  <p>Configuración automática: PDFs ligeros, videos pesados, cualquier tamaño • Multi-selección simultánea</p>
 
   <!-- Zona de Drag & Drop -->
   <div
@@ -9,7 +9,7 @@
     (drop)="onDrop($event)"
     (click)="fileInput.click()">
 
-    @if (!fileName()) {
+    @if (files().length === 0) {
       <div>
         <div>
           @if (isDragOver()) {
@@ -20,13 +20,13 @@
         </div>
         <div>
           @if (isDragOver()) {
-            <span>¡Suelta el archivo aquí!</span>
+            <span>¡Suelta los archivos aquí!</span>
           } @else {
-            <span>Arrastra tu archivo aquí</span>
+            <span>Arrastra múltiples archivos aquí</span>
           }
         </div>
         <div>
-          o <span>haz clic para seleccionar</span>
+          o <span>haz clic para seleccionar múltiples archivos</span>
         </div>
         <div>
           Soporta cualquier tipo de archivo y tamaño<br>
@@ -35,10 +35,9 @@
       </div>
     } @else {
       <div>
-        <div>{{ getFileIcon(fileName()) }}</div>
-        <div>{{ fileName() }}</div>
-        <div>{{ humanSize(totalBytes()) }}</div>
-        <button (click)="clearFile($event)">Cambiar archivo</button>
+        <div>📂 {{ totalFiles() }} archivo(s) seleccionado(s)</div>
+        <div>Progreso global: {{ globalProgress() }}%</div>
+        <button (click)="clearFile($event)">Limpiar todo</button>
       </div>
     }
   </div>
@@ -47,57 +46,81 @@
   <input
     #fileInput
     type="file"
+    multiple
     (change)="onFile($event)"
     style="display: none;" />
 
-  @if (fileName()) {
-    <div>
-      El sistema ajustará automáticamente el tamaño de chunks y concurrencia según el peso del archivo
+  <!-- Lista de archivos -->
+  @if (files().length > 0) {
+    <div style="margin-top: 20px;">
+      <h3>Archivos ({{ completedFiles() }}/{{ totalFiles() }} completados)</h3>
+      
+      @for (file of files(); track file.fileName; let i = $index) {
+        <div style="border: 1px solid #ccc; margin: 10px 0; padding: 15px; border-radius: 5px;">
+          <!-- Header del archivo -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <div>
+              <span>{{ getFileIcon(file.fileName) }}</span>
+              <strong>{{ file.fileName }}</strong>
+              <span>({{ humanSize(file.totalBytes) }})</span>
+            </div>
+            <button (click)="removeFile(i, $event)" style="color: red;">❌</button>
+          </div>
+
+          <!-- Barra de progreso -->
+          @if (file.percent > 0) {
+            <div style="background: #f0f0f0; height: 10px; border-radius: 5px; margin: 10px 0;">
+              <div 
+                style="background: #4CAF50; height: 100%; border-radius: 5px; transition: width 0.3s;"
+                [style.width.%]="file.percent">
+              </div>
+            </div>
+            <div style="font-size: 12px; color: #666;">
+              {{ file.percent }}% — {{ humanSize(file.sentBytes) }} / {{ humanSize(file.totalBytes) }}
+              @if (file.speedBps) {
+                <span> · {{ humanSize(file.speedBps) }}/s</span>
+              }
+              @if (file.etaSeconds) {
+                <span> · ETA: ~{{ file.etaSeconds | number:'1.0-0' }}s</span>
+              }
+            </div>
+          }
+
+          <!-- Estados -->
+          <div style="margin-top: 10px;">
+            @if (file.uploading) {
+              <span style="color: blue;">🔄 Subiendo...</span>
+            } @else if (file.done) {
+              <span style="color: green;">✅ Completado</span>
+            } @else if (file.error) {
+              <span style="color: red;">❌ Error: {{ file.error }}</span>
+            } @else {
+              <span style="color: gray;">⏳ Pendiente</span>
+            }
+          </div>
+        </div>
+      }
     </div>
   }
 
-  @if (percent() > 0 && percent() < 100) {
-    <div>
-      Debug: {{ percent() }}% • {{ humanSize(sentBytes()) }}/{{ humanSize(totalBytes()) }}
-      @if (speedBps()) {
-        • {{ humanSize(speedBps()) }}/s
-      }
-      @if (etaSeconds()) {
-        • ETA: {{ etaSeconds() | number:'1.0-0' }}s
-      }
+  <!-- Controles globales -->
+  @if (files().length > 0) {
+    <div style="margin-top: 20px;">
+      <button (click)="start()" [disabled]="!canStart()">Subir Todos</button>
+      <button (click)="pause()" [disabled]="uploadingFiles() === 0">Pausar Todo</button>
+      <button (click)="resume()" [disabled]="uploadingFiles() === 0">Reanudar Todo</button>
+      <button (click)="cancel()" [disabled]="uploadingFiles() === 0">Cancelar Todo</button>
     </div>
   }
 
-  @if (percent() > 0) {
-    <div>
-      <div [style.width.%]="percent()"></div>
+  <!-- Estadísticas globales -->
+  @if (files().length > 0) {
+    <div style="margin-top: 20px; padding: 10px; background: #f9f9f9; border-radius: 5px;">
+      <strong>Estadísticas:</strong><br>
+      📁 Total: {{ totalFiles() }} archivos<br>
+      ✅ Completados: {{ completedFiles() }}<br>
+      🔄 Subiendo: {{ uploadingFiles() }}<br>
+      📊 Progreso global: {{ globalProgress() }}%
     </div>
-  }
-  @if (percent() > 0) {
-    <div>
-      {{ percent() }}% — {{ humanSize(sentBytes()) }} / {{ humanSize(totalBytes()) }}
-      @if (speedBps()) {
-        <span> · {{ humanSize(speedBps()) }}/s</span>
-      }
-      @if (etaSeconds()) {
-        <span> · ETA: ~{{ etaSeconds() | number:'1.0-0' }}s</span>
-      }
-    </div>
-  }
-
-  <!-- Controles de subida -->
-  <div>
-    <button (click)="start()" [disabled]="!canStart()">Subir</button>
-    <button (click)="pause()" [disabled]="!uploading() || paused()">Pausar</button>
-    <button (click)="resume()" [disabled]="!paused()">Reanudar</button>
-    <button (click)="cancel()" [disabled]="!uploading() && percent() === 0">Cancelar</button>
-  </div>
-
-  <!-- Estados de error y completado -->
-  @if (error()) {
-    <div>Error: {{ error() }}</div>
-  }
-  @if (done()) {
-    <div>¡Listo! Archivo ensamblado en el servidor.</div>
   }
 </div>
