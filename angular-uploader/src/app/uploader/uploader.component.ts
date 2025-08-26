@@ -1,8 +1,8 @@
 import { Component, signal, inject, OnDestroy } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 // RXJS ASYNC: Operadores para programación reactiva asíncrona
-import { concatMap } from 'rxjs/operators';  // Secuencia async manteniendo orden
-import { UploadService } from '../services/upload.service';
+import { concatMap, finalize } from 'rxjs/operators';  // Secuencia async manteniendo orden
+import { UploadService, UploadProgress } from '../services/upload.service';
 
 // Interface para representar cada archivo con su estado individual
 interface FileUploadState {
@@ -133,9 +133,24 @@ export class UploaderComponent implements OnDestroy {
     // Actualizar estado: subiendo
     this.updateFileState(fileIndex, { uploading: true, error: null });
 
-    // ASYNC: Observable pipeline - operaciones no bloqueantes
+    // Crear un Observable que combine la subida con el progreso individualizado
     this.uploadSvc.initUpload(fileState.file).pipe(
-      concatMap(init => this.uploadSvc.uploadFileMultipart(fileState.file, init))
+      concatMap(init => {
+        // Usar uploadFileMultipartWithProgress para progreso individualizado
+        return this.uploadSvc.uploadFileMultipartWithProgress(fileState.file, init, (progress: UploadProgress) => {
+          // Callback de progreso individual para este archivo específico
+          const currentFiles = this.files();
+          const currentFile = currentFiles[fileIndex];
+          if (currentFile && currentFile.uploading && !currentFile.done) {
+            this.updateFileState(fileIndex, {
+              percent: Math.min(progress.percent, 99), // No llegar a 100% hasta completar
+              sentBytes: Math.min(progress.sentBytes, fileState.totalBytes),
+              speedBps: progress.currentSpeedBps,
+              etaSeconds: progress.etaSeconds
+            });
+          }
+        });
+      })
     ).subscribe({
       error: (err) => {
         this.updateFileState(fileIndex, {
@@ -148,7 +163,8 @@ export class UploaderComponent implements OnDestroy {
         this.updateFileState(fileIndex, {
           uploading: false,
           done: true,
-          percent: 100
+          percent: 100,
+          sentBytes: fileState.totalBytes
         });
         this.checkGlobalUploadStatus();
       },

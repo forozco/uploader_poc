@@ -1,1 +1,105 @@
 /* Estilos para el componente uploader */
+
+/* Animación de shimmer para barras de progreso activas */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Mejorar la apariencia de los archivos */
+.file-item {
+  border: 1px solid #ccc;
+  margin: 10px 0;
+  padding: 15px;
+  border-radius: 8px;
+  background: #fafafa;
+  transition: all 0.3s ease;
+}
+
+.file-item:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  background: #ffffff;
+}
+
+.file-item.uploading {
+  border-color: #2196F3;
+  background: #f3f9ff;
+}
+
+.file-item.done {
+  border-color: #4CAF50;
+  background: #f1f8e9;
+}
+
+.file-item.error {
+  border-color: #f44336;
+  background: #ffebee;
+}
+
+/* Estilos para la zona de drag & drop */
+.drop-zone {
+  border: 2px dashed #ccc;
+  border-radius: 10px;
+  padding: 40px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: #fafafa;
+}
+
+.drop-zone:hover {
+  border-color: #2196F3;
+  background: #f3f9ff;
+}
+
+.drop-zone.drag-over {
+  border-color: #4CAF50;
+  background: #f1f8e9;
+  transform: scale(1.02);
+}
+
+/* Botones mejorados */
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background: #2196F3;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #1976D2;
+}
+
+.btn-primary:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background: #5a6268;
+}
+
+.btn-danger {
+  background: #f44336;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #d32f2f;
+}
