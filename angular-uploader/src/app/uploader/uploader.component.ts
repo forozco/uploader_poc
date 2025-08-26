@@ -1,7 +1,8 @@
 
 import { Component, signal, inject, OnDestroy } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
-import { concatMap } from 'rxjs/operators';
+// RXJS ASYNC: Operadores para programación reactiva asíncrona
+import { concatMap } from 'rxjs/operators';  // Secuencia async manteniendo orden
 import { UploadService } from '../services/upload.service';
 
 @Component({
@@ -15,29 +16,35 @@ export class UploaderComponent implements OnDestroy {
   private uploadSvc = inject(UploadService);
   private file: File | null = null;
 
-  // Signals reactivos para el estado de la UI
-  fileName = signal<string>('');
-  percent = signal<number>(0);
-  totalBytes = signal<number>(0);
-  sentBytes = signal<number>(0);
-  speedBps = signal<number | undefined>(undefined);
-  etaSeconds = signal<number | undefined>(undefined);
-  uploading = signal<boolean>(false);
-  paused = signal<boolean>(false);
-  done = signal<boolean>(false);
-  error = signal<string | null>(null);
-  isDragOver = signal<boolean>(false);
+  // SIGNALS REACTIVOS: Estado asíncrono que actualiza UI automáticamente
+  // Cada signal es un observable que triggea re-render cuando cambia
+  fileName = signal<string>('');           // Nombre del archivo actual
+  percent = signal<number>(0);             // Progreso de subida (0-100)
+  totalBytes = signal<number>(0);          // Tamaño total del archivo
+  sentBytes = signal<number>(0);           // Bytes ya enviados
+  speedBps = signal<number | undefined>(undefined);    // Velocidad actual (bytes/sec)
+  etaSeconds = signal<number | undefined>(undefined);  // Tiempo estimado restante
+  uploading = signal<boolean>(false);      // Estado: subiendo
+  paused = signal<boolean>(false);         // Estado: pausado
+  done = signal<boolean>(false);           // Estado: completado
+  error = signal<string | null>(null);     // Mensaje de error
+  isDragOver = signal<boolean>(false);     // Estado: arrastrando archivo
 
   constructor() {
-    // Suscribirse a los cambios de progreso del servicio
+    // ASINCRONÍA REACTIVA: Suscripciones a streams de datos en tiempo real
+    // Los observables emiten valores automáticamente cuando cambian los datos
+    
+    // ASYNC: Stream de progreso - actualizaciones no bloqueantes cada ~100ms
     this.uploadSvc.progress$.subscribe(p => {
+      // SIGNALS: Actualizaciones reactivas que triggean re-render automático
       this.totalBytes.set(p.totalBytes);
       this.sentBytes.set(p.sentBytes);
       this.percent.set(p.percent);
       this.speedBps.set(p.currentSpeedBps);
       this.etaSeconds.set(p.etaSeconds);
     });
-    // Suscribirse al estado de subida
+    
+    // ASYNC: Streams de estado - notificaciones automáticas de cambios
     this.uploadSvc.isUploading$.subscribe(v => this.uploading.set(v));
     this.uploadSvc.isPaused$.subscribe(v => this.paused.set(v));
   }
@@ -74,27 +81,39 @@ export class UploaderComponent implements OnDestroy {
   }
 
   /**
-   * Inicia el proceso de subida
+   * Inicia el proceso de subida ASÍNCRONO
+   * 
+   * ASINCRONÍA:
+   * - Pipeline reactivo RxJS (Observable streams)
+   * - Operaciones no bloqueantes en el hilo principal
+   * - Manejo de eventos asincrónicos (success/error)
+   * - Actualizaciones de UI en tiempo real vía signals
    * 
    * Pipeline reactivo:
-   * 1. Inicializa la sesión en el servidor
-   * 2. Inicia la subida multipart
-   * 3. Maneja errores y completado
+   * 1. Inicializa la sesión en el servidor (HTTP async)
+   * 2. Inicia la subida multipart (chunks paralelos async)
+   * 3. Maneja errores y completado (callbacks async)
    */
   start() {
     if (!this.file) return;
     this.error.set(null);
     this.done.set(false);
+    
+    // ASYNC: Observable pipeline - operaciones no bloqueantes
     this.uploadSvc.initUpload(this.file).pipe(
+      // ASYNC: concatMap mantiene orden secuencial pero procesa async
       concatMap(init => this.uploadSvc.uploadFileMultipart(this.file!, init))
     ).subscribe({
+      // ASYNC: Manejo de errores asincrónicos
       error: (err) => this.error.set(err?.message || 'Fallo subiendo'),
+      // ASYNC: Callback de completado asíncrono
       complete: () => this.done.set(true),
     });
   }
 
   /**
    * Pausa la subida actual
+   * ASYNC: Envía señal asíncrona para pausar chunks en progreso
    */
   pause()  { 
     this.uploadSvc.pause();  
@@ -102,6 +121,7 @@ export class UploaderComponent implements OnDestroy {
 
   /**
    * Reanuda la subida pausada
+   * ASYNC: Reactiva el pipeline de chunks pendientes
    */
   resume() { 
     this.uploadSvc.resume(); 
@@ -109,6 +129,7 @@ export class UploaderComponent implements OnDestroy {
 
   /**
    * Cancela la subida y resetea el estado
+   * ASYNC: Aborta requests HTTP en curso y limpia observables
    */
   cancel() { 
     this.uploadSvc.cancel(); 
@@ -116,32 +137,36 @@ export class UploaderComponent implements OnDestroy {
     this.error.set(null); 
   }
 
-  // Métodos para manejar Drag & Drop
+  // MÉTODOS ASÍNCRONOS PARA DRAG & DROP
+  // Los eventos DOM son inherentemente asincrónicos (event loop)
 
   /**
    * Maneja el evento dragover (cuando se arrastra sobre la zona)
+   * ASYNC: Event handler no bloqueante del DOM event loop
    * 
    * @param event - Evento de drag
    */
   onDragOver(event: DragEvent) {
     event.preventDefault();
     event.stopPropagation();
-    this.isDragOver.set(true);
+    this.isDragOver.set(true);  // Signal update → async UI re-render
   }
 
   /**
    * Maneja el evento dragleave (cuando se sale de la zona)
+   * ASYNC: Event handler no bloqueante del DOM event loop
    * 
    * @param event - Evento de drag
    */
   onDragLeave(event: DragEvent) {
     event.preventDefault();
     event.stopPropagation();
-    this.isDragOver.set(false);
+    this.isDragOver.set(false); // Signal update → async UI re-render
   }
 
   /**
    * Maneja el evento drop (cuando se suelta el archivo)
+   * ASYNC: Event handler con procesamiento asíncrono de archivos
    * 
    * @param event - Evento de drop con los archivos
    */
@@ -153,7 +178,7 @@ export class UploaderComponent implements OnDestroy {
     const files = event.dataTransfer?.files;
     if (files && files.length > 0) {
       const file = files[0];
-      this.setFile(file);
+      this.setFile(file);  // ASYNC: Procesamiento de archivo sin bloqueo
     }
   }
 
