@@ -61,6 +61,7 @@
         <div
           class="file-item"
           [class.uploading]="file.uploading"
+          [class.assembling]="file.assembling"
           [class.done]="file.done"
           [class.error]="file.error">
           <!-- Header del archivo -->
@@ -74,20 +75,29 @@
           </div>
 
           <!-- Barra de progreso mejorada -->
-          @if (file.uploading || file.percent > 0) {
+          @if (file.uploading || file.assembling || file.percent > 0) {
             <div style="background: #f0f0f0; height: 12px; border-radius: 6px; margin: 10px 0; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);">
               <div
                 style="height: 100%; border-radius: 6px; transition: width 0.2s ease-out;"
                 [style.width.%]="file.percent"
                 [style.background]="file.uploading ? 'linear-gradient(90deg, #4CAF50, #81C784)' :
+                                   file.assembling ? 'linear-gradient(90deg, #FF9800, #FFB74D)' :
                                    file.done ? '#4CAF50' :
                                    file.error ? '#f44336' : '#2196F3'">
                 @if (file.uploading) {
-                  <!-- Animación de progreso activo -->
+                  <!-- Animación de progreso activo para upload -->
                   <div style="
                     height: 100%;
                     background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
                     animation: shimmer 1.5s infinite;
+                  "></div>
+                }
+                @if (file.assembling) {
+                  <!-- Animación diferente para ensamblado -->
+                  <div style="
+                    height: 100%;
+                    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+                    animation: shimmer 2s infinite;
                   "></div>
                 }
               </div>
@@ -111,6 +121,8 @@
           <div style="margin-top: 10px;">
             @if (file.uploading) {
               <span style="color: blue;">🔄 Subiendo...</span>
+            } @else if (file.assembling) {
+              <span style="color: orange;">🔧 Ensamblando archivo...</span>
             } @else if (file.done) {
               <span style="color: green;">✅ Completado</span>
             } @else if (file.error) {

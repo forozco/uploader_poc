@@ -231,9 +231,15 @@ export class UploadService {
    * @param file - Archivo a subir
    * @param init - Respuesta de inicialización con uploadId y chunks previos
    * @param progressCallback - Función que se llama con el progreso de ESTE archivo específico
+   * @param assemblingCallback - Función que se llama cuando comienza el proceso de ensamblado
    * @returns Observable que completa cuando el archivo está totalmente subido
    */
-  uploadFileMultipartWithProgress(file: File, init: InitResponse, progressCallback: (progress: UploadProgress) => void): Observable<void> {
+  uploadFileMultipartWithProgress(
+    file: File,
+    init: InitResponse,
+    progressCallback: (progress: UploadProgress) => void,
+    assemblingCallback?: () => void
+  ): Observable<void> {
     // Obtener configuración óptima basada en el tamaño del archivo
     const config = this.getOptimalConfig(file.size);
     const chunkSize = init.recommendedChunkSize || config.chunkSize;
@@ -288,7 +294,14 @@ export class UploadService {
         })
       ), config.concurrency),
       toArray(), // Esperar a que todos los chunks terminen
-      concatMap(() => this.complete(init.uploadId, totalChunks, file.name, file.type)), // Ensamblar archivo final
+      concatMap(() => {
+        // Notificar que comienza el ensamblado
+        console.log(`🔧 Ensamblando archivo: ${file.name}`);
+        if (assemblingCallback) {
+          assemblingCallback();
+        }
+        return this.complete(init.uploadId, totalChunks, file.name, file.type);
+      }), // Ensamblar archivo final
       finalize(() => {
         // Notificar progreso final de este archivo específico
         progressCallback({ totalBytes, sentBytes: totalBytes, percent: 100 });

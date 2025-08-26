@@ -30,6 +30,11 @@
   background: #f3f9ff;
 }
 
+.file-item.assembling {
+  border-color: #FF9800;
+  background: #fff8e1;
+}
+
 .file-item.done {
   border-color: #4CAF50;
   background: #f1f8e9;

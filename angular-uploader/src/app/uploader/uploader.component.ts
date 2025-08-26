@@ -14,6 +14,7 @@ interface FileUploadState {
   speedBps?: number;
   etaSeconds?: number;
   uploading: boolean;
+  assembling: boolean;  // Nuevo estado: ensamblando archivo final
   paused: boolean;
   done: boolean;
   error: string | null;
@@ -85,6 +86,7 @@ export class UploaderComponent implements OnDestroy {
       speedBps: undefined,
       etaSeconds: undefined,
       uploading: false,
+      assembling: false,
       paused: false,
       done: false,
       error: null
@@ -137,24 +139,39 @@ export class UploaderComponent implements OnDestroy {
     this.uploadSvc.initUpload(fileState.file).pipe(
       concatMap(init => {
         // Usar uploadFileMultipartWithProgress para progreso individualizado
-        return this.uploadSvc.uploadFileMultipartWithProgress(fileState.file, init, (progress: UploadProgress) => {
-          // Callback de progreso individual para este archivo específico
-          const currentFiles = this.files();
-          const currentFile = currentFiles[fileIndex];
-          if (currentFile && currentFile.uploading && !currentFile.done) {
+        return this.uploadSvc.uploadFileMultipartWithProgress(
+          fileState.file,
+          init,
+          (progress: UploadProgress) => {
+            // Callback de progreso individual para este archivo específico
+            const currentFiles = this.files();
+            const currentFile = currentFiles[fileIndex];
+            if (currentFile && currentFile.uploading && !currentFile.done) {
+              this.updateFileState(fileIndex, {
+                percent: Math.min(progress.percent, 99), // No llegar a 100% hasta completar
+                sentBytes: Math.min(progress.sentBytes, fileState.totalBytes),
+                speedBps: progress.currentSpeedBps,
+                etaSeconds: progress.etaSeconds
+              });
+            }
+          },
+          () => {
+            // Callback de ensamblado: cuando comienza el proceso de ensamblado
+            console.log(`Ensamblando archivo: ${fileState.fileName}`);
             this.updateFileState(fileIndex, {
-              percent: Math.min(progress.percent, 99), // No llegar a 100% hasta completar
-              sentBytes: Math.min(progress.sentBytes, fileState.totalBytes),
-              speedBps: progress.currentSpeedBps,
-              etaSeconds: progress.etaSeconds
+              uploading: false,
+              assembling: true,
+              percent: 100, // Mostrar 100% durante ensamblado
+              sentBytes: fileState.totalBytes
             });
           }
-        });
+        );
       })
     ).subscribe({
       error: (err) => {
         this.updateFileState(fileIndex, {
           uploading: false,
+          assembling: false,
           error: err?.message || 'Fallo subiendo'
         });
         this.checkGlobalUploadStatus();
@@ -162,6 +179,7 @@ export class UploaderComponent implements OnDestroy {
       complete: () => {
         this.updateFileState(fileIndex, {
           uploading: false,
+          assembling: false,
           done: true,
           percent: 100,
           sentBytes: fileState.totalBytes
@@ -231,6 +249,7 @@ export class UploaderComponent implements OnDestroy {
     const updatedFiles = files.map(f => ({
       ...f,
       uploading: false,
+      assembling: false,
       paused: false,
       percent: 0,
       sentBytes: 0,
