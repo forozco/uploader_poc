@@ -1,4 +1,4 @@
-import { Component, signal, inject, OnDestroy } from '@angular/core';
+import { Component, signal, inject, OnDestroy, computed, effect } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 // RXJS ASYNC: Operadores para programación reactiva asíncrona
 import { concatMap, finalize } from 'rxjs/operators';  // Secuencia async manteniendo orden
@@ -35,20 +35,26 @@ export class UploaderComponent implements OnDestroy {
   isDragOver = signal<boolean>(false);     // Estado: arrastrando archivo
   globalUploading = signal<boolean>(false); // Estado global: algún archivo subiendo
 
-  // Computed signals para estadísticas globales
-  totalFiles = () => this.files().length;
-  completedFiles = () => this.files().filter(f => f.done).length;
-  uploadingFiles = () => this.files().filter(f => f.uploading).length;
-  globalProgress = () => {
+  // Computed signals para estadísticas globales (Angular 20)
+  totalFiles = computed(() => this.files().length);
+  completedFiles = computed(() => this.files().filter(f => f.done).length);
+  uploadingFiles = computed(() => this.files().filter(f => f.uploading).length);
+  globalProgress = computed(() => {
     const files = this.files();
     if (files.length === 0) return 0;
     const totalProgress = files.reduce((sum, f) => sum + f.percent, 0);
     return Math.round(totalProgress / files.length);
-  };
+  });
 
   constructor() {
-    // Para multi-upload, el manejo de progreso se hará por archivo individual
-    // Este constructor se simplifica ya que cada archivo tendrá su propio estado
+    // Angular 20: Effect para lógica reactiva automática
+    effect(() => {
+      const uploadingCount = this.uploadingFiles();
+      console.log(`Archivos subiendo: ${uploadingCount}`);
+      
+      // Auto-actualizar el estado global basado en archivos activos
+      this.globalUploading.set(uploadingCount > 0);
+    });
   }
 
   ngOnDestroy() {
@@ -200,14 +206,11 @@ export class UploaderComponent implements OnDestroy {
   }
 
   /**
-   * Verifica si todas las subidas han terminado
+   * Angular 20: Ya no necesario gracias al effect() que auto-gestiona el estado global
    */
   private checkGlobalUploadStatus() {
-    const files = this.files();
-    const stillUploading = files.some(f => f.uploading);
-    if (!stillUploading) {
-      this.globalUploading.set(false);
-    }
+    // El effect() en constructor maneja esto automáticamente
+    // Mantenemos el método por compatibilidad pero puede ser removido
   }
 
   /**
