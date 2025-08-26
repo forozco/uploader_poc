@@ -112,6 +112,29 @@ export class UploaderComponent implements OnDestroy {
   }
 
   /**
+   * Verifica si se puede pausar (hay archivos subiendo)
+   */
+  canPause() {
+    return this.uploadingFiles() > 0;
+  }
+
+  /**
+   * Verifica si se puede reanudar (hay archivos pausados o pendientes)
+   */
+  canResume() {
+    const files = this.files();
+    return files.some(f => f.paused || (!f.done && !f.uploading && f.percent > 0));
+  }
+
+  /**
+   * Verifica si se puede cancelar (hay archivos con progreso)
+   */
+  canCancel() {
+    const files = this.files();
+    return files.some(f => f.uploading || f.paused || f.percent > 0);
+  }
+
+  /**
    * Inicia la subida de todos los archivos pendientes
    */
   start() {
@@ -218,13 +241,16 @@ export class UploaderComponent implements OnDestroy {
    * ASYNC: Envía señal asíncrona para pausar chunks en progreso
    */
   pause() {
+    console.log('Pausando todas las subidas...');
     this.uploadSvc.pause();
+    
     // Actualizar estado de archivos que están subiendo
     const files = this.files();
     const updatedFiles = files.map(f =>
-      f.uploading ? { ...f, paused: true } : f
+      f.uploading ? { ...f, paused: true, uploading: false } : f
     );
     this.files.set(updatedFiles);
+    console.log('Subidas pausadas');
   }
 
   /**
@@ -232,13 +258,16 @@ export class UploaderComponent implements OnDestroy {
    * ASYNC: Reactiva el pipeline de chunks pendientes
    */
   resume() {
+    console.log('Reanudando subidas...');
     this.uploadSvc.resume();
+    
     // Actualizar estado de archivos pausados
     const files = this.files();
     const updatedFiles = files.map(f =>
-      f.paused ? { ...f, paused: false } : f
+      f.paused ? { ...f, paused: false, uploading: true } : f
     );
     this.files.set(updatedFiles);
+    console.log('Subidas reanudadas');
   }
 
   /**
@@ -246,7 +275,9 @@ export class UploaderComponent implements OnDestroy {
    * ASYNC: Aborta requests HTTP en curso y limpia observables
    */
   cancel() {
+    console.log('Cancelando todas las subidas...');
     this.uploadSvc.cancel();
+    
     // Resetear estado de todos los archivos
     const files = this.files();
     const updatedFiles = files.map(f => ({
@@ -260,6 +291,7 @@ export class UploaderComponent implements OnDestroy {
     }));
     this.files.set(updatedFiles);
     this.globalUploading.set(false);
+    console.log('Todas las subidas canceladas');
   }
 
   /**
