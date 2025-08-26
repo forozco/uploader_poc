@@ -1,47 +1,89 @@
-<div>
-  <h2>POC Multi-Uploader usando Chunk para la manipulacion de Archivos en Multipart Asíncrono (Angular 20)</h2>
-  <p>Configuración automática: PDFs ligeros, videos pesados, cualquier tamaño • Multi-selección simultánea</p>
+<div class="container py-4">
+  <!-- Header -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body text-center">
+          <h1 class="card-title h3 text-primary mb-3">
+            <i class="bi bi-cloud-upload"></i>
+            POC Multi-Uploader
+          </h1>
+          <p class="card-text text-muted">
+            Subida asíncrona con chunks • Angular 20 • Multi-selección simultánea
+          </p>
+          <small class="text-muted">
+            Configuración automática: PDFs ligeros, videos pesados, cualquier tamaño
+          </small>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Zona de Drag & Drop -->
-  <div
-    class="drop-zone"
-    [class.drag-over]="isDragOver()"
-    (dragover)="onDragOver($event)"
-    (dragleave)="onDragLeave($event)"
-    (drop)="onDrop($event)"
-    (click)="fileInput.click()">
+  <div class="row mb-4">
+    <div class="col-12">
+      <div
+        class="card drop-zone border-dashed h-100"
+        [class.border-success]="isDragOver()"
+        [class.bg-light]="!isDragOver()"
+        [class.bg-success-subtle]="isDragOver()"
+        (dragover)="onDragOver($event)"
+        (dragleave)="onDragLeave($event)"
+        (drop)="onDrop($event)"
+        (click)="fileInput.click()"
+        style="cursor: pointer; min-height: 200px;">
 
-    @if (files().length === 0) {
-      <div>
-        <div>
-          @if (isDragOver()) {
-            <span>↓</span>
+        <div class="card-body d-flex flex-column justify-content-center align-items-center text-center">
+          @if (files().length === 0) {
+            <div>
+              <div class="mb-3">
+                @if (isDragOver()) {
+                  <i class="bi bi-download display-1 text-success"></i>
+                } @else {
+                  <i class="bi bi-cloud-plus display-1 text-primary"></i>
+                }
+              </div>
+              <h5 class="card-title">
+                @if (isDragOver()) {
+                  <span class="text-success">¡Suelta los archivos aquí!</span>
+                } @else {
+                  <span class="text-primary">Arrastra múltiples archivos aquí</span>
+                }
+              </h5>
+              <p class="card-text text-muted mb-2">
+                o <strong>haz clic para seleccionar múltiples archivos</strong>
+              </p>
+              <small class="text-muted">
+                <i class="bi bi-info-circle"></i>
+                Soporta cualquier tipo de archivo y tamaño<br>
+                PDF, Videos, Imágenes, Documentos, etc.
+              </small>
+            </div>
           } @else {
-            <span>+</span>
+            <div class="text-center">
+              <div class="mb-3">
+                <i class="bi bi-files display-4 text-success"></i>
+              </div>
+              <h5 class="card-title text-success">{{ totalFiles() }} archivo(s) seleccionado(s)</h5>
+              <div class="progress mb-3" style="height: 8px;">
+                <div 
+                  class="progress-bar bg-success" 
+                  role="progressbar" 
+                  [style.width.%]="globalProgress()"
+                  [attr.aria-valuenow]="globalProgress()" 
+                  aria-valuemin="0" 
+                  aria-valuemax="100">
+                </div>
+              </div>
+              <p class="card-text">Progreso global: <strong>{{ globalProgress() }}%</strong></p>
+              <button class="btn btn-outline-secondary btn-sm" (click)="clearFile($event)">
+                <i class="bi bi-trash"></i> Limpiar todo
+              </button>
+            </div>
           }
         </div>
-        <div>
-          @if (isDragOver()) {
-            <span>¡Suelta los archivos aquí!</span>
-          } @else {
-            <span>Arrastra múltiples archivos aquí</span>
-          }
-        </div>
-        <div>
-          o <span>haz clic para seleccionar múltiples archivos</span>
-        </div>
-        <div>
-          Soporta cualquier tipo de archivo y tamaño<br>
-          PDF, Videos, Imágenes, Documentos, etc.
-        </div>
       </div>
-    } @else {
-      <div>
-        <div>{{ totalFiles() }} archivo(s) seleccionado(s)</div>
-        <div>Progreso global: {{ globalProgress() }}%</div>
-        <button class="btn btn-secondary" (click)="clearFile($event)">Limpiar todo</button>
-      </div>
-    }
+    </div>
   </div>
 
   <!-- Input file oculto -->
@@ -54,107 +96,135 @@
 
   <!-- Lista de archivos -->
   @if (files().length > 0) {
-    <div style="margin-top: 20px;">
-      <h3>Archivos ({{ completedFiles() }}/{{ totalFiles() }} completados)</h3>
+    <div class="row mb-4">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+              <i class="bi bi-list-ul"></i>
+              Archivos ({{ completedFiles() }}/{{ totalFiles() }} completados)
+            </h5>
+            <div class="badge bg-primary">{{ files().length }} archivos</div>
+          </div>
+          <div class="card-body p-0">
 
       @for (file of files(); track file.fileName; let i = $index) {
-        <div
-          class="file-item"
-          [class.uploading]="file.uploading"
-          [class.assembling]="file.assembling"
-          [class.done]="file.done"
-          [class.error]="file.error">
-          <!-- Header del archivo -->
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <div>
-              <span>{{ getFileIcon(file.fileName) }}</span>
-              <strong>{{ file.fileName }}</strong>
-              <span>({{ humanSize(file.totalBytes) }})</span>
-            </div>
-            <button class="btn btn-danger" (click)="removeFile(i, $event)">Eliminar</button>
-          </div>
-
-          <!-- Barra de progreso mejorada -->
-          @if (file.uploading || file.assembling || file.percent > 0) {
-            <div style="background: #f0f0f0; height: 12px; border-radius: 6px; margin: 10px 0; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);">
-              <div
-                style="height: 100%; border-radius: 6px; transition: width 0.2s ease-out;"
-                [style.width.%]="file.percent"
-                [style.background]="file.uploading ? 'linear-gradient(90deg, #4CAF50, #81C784)' :
-                                   file.assembling ? 'linear-gradient(90deg, #FF9800, #FFB74D)' :
-                                   file.done ? '#4CAF50' :
-                                   file.error ? '#f44336' : '#2196F3'">
-                @if (file.uploading) {
-                  <!-- Animación de progreso activo para upload -->
-                  <div style="
-                    height: 100%;
-                    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-                    animation: shimmer 1.5s infinite;
-                  "></div>
-                }
-                @if (file.assembling) {
-                  <!-- Animación diferente para ensamblado -->
-                  <div style="
-                    height: 100%;
-                    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-                    animation: shimmer 2s infinite;
-                  "></div>
-                }
+        <div class="card mb-3" [ngClass]="{
+          'border-primary': file.uploading,
+          'border-warning': file.assembling,
+          'border-success': file.done,
+          'border-danger': file.error
+        }">
+          <div class="card-body p-3">
+            <!-- Header del archivo -->
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="d-flex align-items-center">
+                <span class="me-2">{{ getFileIcon(file.fileName) }}</span>
+                <strong class="text-dark">{{ file.fileName }}</strong>
+                <small class="text-muted ms-2">({{ humanSize(file.totalBytes) }})</small>
               </div>
+              <button type="button" class="btn btn-outline-danger btn-sm" (click)="removeFile(i, $event)">
+                <i class="bi bi-trash"></i> Eliminar
+              </button>
             </div>
 
-            <!-- Información detallada del progreso -->
-            <div style="font-size: 12px; color: #666; display: flex; justify-content: space-between;">
-              <span>
-                <strong>{{ file.percent }}%</strong> — {{ humanSize(file.sentBytes) }} / {{ humanSize(file.totalBytes) }}
-              </span>
-              <span>
-                @if (file.speedBps && file.uploading) {
-                  <span style="color: #2196F3;">{{ humanSize(file.speedBps) }}/s</span>
-                }
-                @if (file.etaSeconds && file.uploading && file.etaSeconds > 0) {
-                  <span style="color: #FF9800; margin-left: 8px;">ETA: {{ file.etaSeconds | number:'1.0-0' }}s</span>
-                }
-              </span>
-            </div>
-          }          
-          <!-- Estados -->
-          <div style="margin-top: 10px;">
-            @if (file.uploading) {
-              <span style="color: blue;">Subiendo...</span>
-            } @else if (file.assembling) {
-              <span style="color: orange;">Ensamblando archivo...</span>
-            } @else if (file.done) {
-              <span style="color: green;">Completado</span>
-            } @else if (file.error) {
-              <span style="color: red;">Error: {{ file.error }}</span>
-            } @else {
-              <span style="color: gray;">Pendiente</span>
+            <!-- Barra de progreso con Bootstrap -->
+            @if (file.uploading || file.assembling || file.percent > 0) {
+              <div class="progress mb-2" style="height: 12px;">
+                <div class="progress-bar" 
+                     role="progressbar" 
+                     [style.width.%]="file.percent"
+                     [ngClass]="{
+                       'progress-bar-striped progress-bar-animated bg-primary': file.uploading,
+                       'progress-bar-striped progress-bar-animated bg-warning': file.assembling,
+                       'bg-success': file.done,
+                       'bg-danger': file.error
+                     }"
+                     [attr.aria-valuenow]="file.percent"
+                     aria-valuemin="0" 
+                     aria-valuemax="100">
+                </div>
+              </div>
+
+              <!-- Información detallada del progreso -->
+              <div class="d-flex justify-content-between">
+                <small class="text-muted">
+                  <strong>{{ file.percent }}%</strong> — {{ humanSize(file.sentBytes) }} / {{ humanSize(file.totalBytes) }}
+                </small>
+                <small class="text-muted">
+                  @if (file.speedBps && file.uploading) {
+                    <span class="text-info">{{ humanSize(file.speedBps) }}/s</span>
+                  }
+                  @if (file.etaSeconds && file.uploading && file.etaSeconds > 0) {
+                    <span class="text-warning ms-2">ETA: {{ file.etaSeconds | number:'1.0-0' }}s</span>
+                  }
+                </small>
+              </div>
             }
+            <!-- Estados con badges de Bootstrap -->
+            <div class="mt-2">
+              @if (file.uploading) {
+                <span class="badge bg-primary">Subiendo...</span>
+              } @else if (file.assembling) {
+                <span class="badge bg-warning">Ensamblando archivo...</span>
+              } @else if (file.done) {
+                <span class="badge bg-success">Completado</span>
+              } @else if (file.error) {
+                <span class="badge bg-danger">Error: {{ file.error }}</span>
+              } @else {
+                <span class="badge bg-secondary">Pendiente</span>
+              }
+            </div>
           </div>
         </div>
       }
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+  <!-- Controles globales con Bootstrap -->
+  @if (files().length > 0) {
+    <div class="d-flex gap-2 mt-4">
+      <button type="button" class="btn btn-primary" (click)="start()" [disabled]="!canStart()">
+        <i class="bi bi-cloud-upload"></i> Subir Todos
+      </button>
+      <button type="button" class="btn btn-warning" (click)="pause()" [disabled]="!canPause()">
+        <i class="bi bi-pause-circle"></i> Pausar Todo
+      </button>
+      <button type="button" class="btn btn-success" (click)="resume()" [disabled]="!canResume()">
+        <i class="bi bi-play-circle"></i> Reanudar Todo
+      </button>
+      <button type="button" class="btn btn-danger" (click)="cancel()" [disabled]="!canCancel()">
+        <i class="bi bi-x-circle"></i> Cancelar Todo
+      </button>
     </div>
   }
 
-  <!-- Controles globales -->
+  <!-- Estadísticas globales con Bootstrap -->
   @if (files().length > 0) {
-    <div style="margin-top: 20px;">
-      <button class="btn btn-primary" (click)="start()" [disabled]="!canStart()">Subir Todos</button>
-      <!-- <button class="btn btn-secondary" (click)="pause()" [disabled]="!canPause()">Pausar Todo</button>
-      <button class="btn btn-secondary" (click)="resume()" [disabled]="!canResume()">Reanudar Todo</button>
-      <button class="btn btn-danger" (click)="cancel()" [disabled]="!canCancel()">Cancelar Todo</button> -->
-    </div>
-  }
-
-  <!-- Estadísticas globales -->
-  @if (files().length > 0) {
-    <div style="margin-top: 20px; padding: 10px; background: #f9f9f9; border-radius: 5px;">
-      <strong>Estadísticas:</strong><br>
-      Total: {{ totalFiles() }} archivos<br>
-      Completados: {{ completedFiles() }}<br>
-      Subiendo: {{ uploadingFiles() }}<br>
-      Progreso global: {{ globalProgress() }}%
+    <div class="card mt-4">
+      <div class="card-body">
+        <h6 class="card-title">📊 Estadísticas</h6>
+        <div class="row text-center">
+          <div class="col-3">
+            <div class="fs-4 text-primary">{{ totalFiles() }}</div>
+            <small class="text-muted">Total</small>
+          </div>
+          <div class="col-3">
+            <div class="fs-4 text-success">{{ completedFiles() }}</div>
+            <small class="text-muted">Completados</small>
+          </div>
+          <div class="col-3">
+            <div class="fs-4 text-info">{{ uploadingFiles() }}</div>
+            <small class="text-muted">Subiendo</small>
+          </div>
+          <div class="col-3">
+            <div class="fs-4 text-warning">{{ globalProgress() }}%</div>
+            <small class="text-muted">Progreso</small>
+          </div>
+        </div>
+      </div>
     </div>
   }
 </div>
