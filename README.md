@@ -7,8 +7,6 @@
 **Autor**: Fernando Orozco  
 **Última actualización**: Agosto 2025
 
-> **Nota**: Esta es una POC educativa. Para entornos de producción, considera las mejoras de seguridad y escalabilidad mencionadas arriba.ps://www.typescriptlang.org/)
-
 **Prueba de concepto (POC)** para subir archivos de cualquier tamaño usando **chunked multipart uploads** con Angular 20 y backend Node.js/Express. Optimizada para archivos grandes (1GB - 10GB+) con configuración automática de chunks y concurrencia.
 
 ## Características Principales
