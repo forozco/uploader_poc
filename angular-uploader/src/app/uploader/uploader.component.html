@@ -117,7 +117,7 @@
                 }
               </span>
             </div>
-          }          
+          }
           <!-- Estados -->
           <div style="margin-top: 10px;">
             @if (file.uploading) {
@@ -141,9 +141,9 @@
   @if (files().length > 0) {
     <div style="margin-top: 20px;">
       <button class="btn btn-primary" (click)="start()" [disabled]="!canStart()">Subir Todos</button>
-      <!-- <button class="btn btn-secondary" (click)="pause()" [disabled]="!canPause()">Pausar Todo</button>
+      <button class="btn btn-secondary" (click)="pause()" [disabled]="!canPause()">Pausar Todo</button>
       <button class="btn btn-secondary" (click)="resume()" [disabled]="!canResume()">Reanudar Todo</button>
-      <button class="btn btn-danger" (click)="cancel()" [disabled]="!canCancel()">Cancelar Todo</button> -->
+      <button class="btn btn-danger" (click)="cancel()" [disabled]="!canCancel()">Cancelar Todo</button>
     </div>
   }
 
