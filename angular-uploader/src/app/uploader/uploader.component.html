@@ -71,7 +71,13 @@
               <strong>{{ file.fileName }}</strong>
               <span>({{ humanSize(file.totalBytes) }})</span>
             </div>
-            <button class="btn btn-danger" (click)="removeFile(i, $event)">Eliminar</button>
+            @if (!file.uploading && !file.assembling && !file.paused) {
+              <button 
+                class="btn btn-danger" 
+                (click)="removeFile(i, $event)">
+                Eliminar
+              </button>
+            }
           </div>
 
           <!-- Barra de progreso mejorada -->
@@ -117,7 +123,7 @@
                 }
               </span>
             </div>
-          }
+          }          
           <!-- Estados -->
           <div style="margin-top: 10px;">
             @if (file.uploading) {

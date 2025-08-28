@@ -6,4 +6,17 @@
   font-family: 'Roboto', sans-serif;
 }
 
+/* Estilos para botones deshabilitados */
+.btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed !important;
+  pointer-events: none;
+}
+
+.btn-danger[disabled] {
+  background-color: #dc3545 !important;
+  border-color: #dc3545 !important;
+  opacity: 0.4;
+}
+
 /* estilos globales opcionales */
