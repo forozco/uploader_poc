@@ -127,11 +127,11 @@
           <!-- Estados -->
           <div style="margin-top: 10px;">
             @if (file.uploading) {
-              <span style="color: blue;">Subiendo...</span>
+              <span style="color: blue;">📤 Subiendo chunks...</span>
             } @else if (file.assembling) {
-              <span style="color: orange;">Ensamblando archivo...</span>
+              <span style="color: orange;">⚙️ Ensamblando archivo final... (No se puede cancelar)</span>
             } @else if (file.done) {
-              <span style="color: green;">Completado</span>
+              <span style="color: green;">✅ Completado</span>
             } @else if (file.error) {
               <span style="color: red;">Error: {{ file.error }}</span>
             } @else {
@@ -146,6 +146,12 @@
   <!-- Controles globales -->
   @if (files().length > 0) {
     <div style="margin-top: 20px;">
+      @if (assemblingFiles() > 0) {
+        <div class="alert alert-info" style="margin-bottom: 15px;">
+          <strong>⚙️ Ensamblando archivos...</strong><br>
+          {{ assemblingFiles() }} archivo(s) en fase final de procesamiento. Los controles están deshabilitados durante esta fase.
+        </div>
+      }
       <button class="btn btn-primary" (click)="start()" [disabled]="!canStart()">Subir Todos</button>
       <button class="btn btn-secondary" (click)="pause()" [disabled]="!canPause()">Pausar Todo</button>
       <button class="btn btn-secondary" (click)="resume()" [disabled]="!canResume()">Reanudar Todo</button>
@@ -160,6 +166,9 @@
       Total: {{ totalFiles() }} archivos<br>
       Completados: {{ completedFiles() }}<br>
       Subiendo: {{ uploadingFiles() }}<br>
+      @if (assemblingFiles() > 0) {
+        Ensamblando: {{ assemblingFiles() }}<br>
+      }
       Progreso global: {{ globalProgress() }}%
     </div>
   }

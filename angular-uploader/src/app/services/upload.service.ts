@@ -131,9 +131,15 @@ export class UploadService {
    * Reanuda la subida pausada
    *
    * Quita el flag de pausa permitiendo que continúen los chunks pendientes
+   * También asegura que el estado de cancelación esté limpio
    */
   resume() {
+    // Asegurar que no estamos en estado de cancelación antes de reanudar
+    if (this.isCancelled$.value) {
+      this.isCancelled$.next(false);
+    }
     this.isPaused$.next(false);
+    console.log('Subida reanudada, estado de cancelación verificado');
   }
 
   /**
@@ -358,13 +364,28 @@ export class UploadService {
     if (this.isPaused$.value) {
       return new Observable<number>((subscriber) => {
         const check = setInterval(() => {
+          // Verificar cancelación antes de continuar
+          if (this.isCancelled$.value) {
+            clearInterval(check);
+            subscriber.complete();
+            return;
+          }
+          
           if (!this.isPaused$.value) {
             clearInterval(check);
-            // Recursión reactiva: volver a intentar cuando se reanude
-            this.uploadSingleChunk(file, uploadId, chunkIndex, chunkSize, totalChunks, maxRetries).subscribe(subscriber);
+            // Recursión reactiva: volver a intentar cuando se reanude, con cancelación aplicada
+            this.uploadSingleChunk(file, uploadId, chunkIndex, chunkSize, totalChunks, maxRetries).pipe(
+              takeUntil(this.isCancelled$.pipe(filter(cancelled => cancelled)))
+            ).subscribe(subscriber);
           }
         }, UPLOAD_CONFIG.PAUSE_CHECK_INTERVAL);
-      });
+        
+        // Limpiar el intervalo cuando el Observable se cancele
+        return () => clearInterval(check);
+      }).pipe(
+        // Aplicar cancelación también al Observable de pausa
+        takeUntil(this.isCancelled$.pipe(filter(cancelled => cancelled)))
+      );
     }
 
     // Extraer la porción del archivo para este chunk
@@ -421,7 +442,19 @@ export class UploadService {
                   (totalChunks > 100 ? UPLOAD_CONFIG.LARGE_FILE_EXTRA_DELAY : 0);
 
     return new Observable<number>((subscriber) => {
-      setTimeout(() => {
+      // Verificar cancelación antes de programar el reintento
+      if (this.isCancelled$.value) {
+        subscriber.complete();
+        return;
+      }
+      
+      const timeoutId = setTimeout(() => {
+        // Verificar cancelación antes de hacer la petición HTTP
+        if (this.isCancelled$.value) {
+          subscriber.complete();
+          return;
+        }
+        
         this.http.post(`/api/uploads/${encodeURIComponent(uploadId)}/chunk`, form).pipe(
           takeUntil(this.isCancelled$.pipe(filter(cancelled => cancelled))), // Se cancela cuando isCancelled$ es true
           map(() => chunkSize),
@@ -432,7 +465,13 @@ export class UploadService {
           })
         ).subscribe(subscriber);
       }, delay);
-    });
+      
+      // Limpiar el timeout si el Observable se cancela
+      return () => clearTimeout(timeoutId);
+    }).pipe(
+      // Aplicar cancelación también al Observable de reintento
+      takeUntil(this.isCancelled$.pipe(filter(cancelled => cancelled)))
+    );
   }
 
   /**

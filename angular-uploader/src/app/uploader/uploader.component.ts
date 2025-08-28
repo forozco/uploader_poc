@@ -39,6 +39,7 @@ export class UploaderComponent implements OnDestroy {
   totalFiles = computed(() => this.files().length);
   completedFiles = computed(() => this.files().filter(f => f.done).length);
   uploadingFiles = computed(() => this.files().filter(f => f.uploading).length);
+  assemblingFiles = computed(() => this.files().filter(f => f.assembling).length);
   globalProgress = computed(() => {
     const files = this.files();
     if (files.length === 0) return 0;
@@ -104,33 +105,42 @@ export class UploaderComponent implements OnDestroy {
   /**
    * Verifica si se puede iniciar alguna subida
    *
-   * @returns true si hay archivos no completados y no está subiendo globalmente
+   * @returns true si hay archivos no completados, no está subiendo globalmente, y no hay archivos ensamblando
    */
   canStart() {
     const files = this.files();
+    // No se puede iniciar si algún archivo está ensamblando
+    if (files.some(f => f.assembling)) return false;
     return files.length > 0 && !this.globalUploading() && files.some(f => !f.done && !f.uploading);
   }
 
   /**
-   * Verifica si se puede pausar (hay archivos subiendo)
+   * Verifica si se puede pausar (hay archivos subiendo, pero no ensamblando)
    */
   canPause() {
+    const files = this.files();
+    // No se puede pausar si algún archivo está ensamblando
+    if (files.some(f => f.assembling)) return false;
     return this.uploadingFiles() > 0;
   }
 
   /**
-   * Verifica si se puede reanudar (hay archivos pausados o pendientes)
+   * Verifica si se puede reanudar (hay archivos pausados o pendientes, pero no ensamblando)
    */
   canResume() {
     const files = this.files();
+    // No se puede reanudar si algún archivo está ensamblando
+    if (files.some(f => f.assembling)) return false;
     return files.some(f => f.paused || (!f.done && !f.uploading && f.percent > 0));
   }
 
   /**
-   * Verifica si se puede cancelar (hay archivos con progreso)
+   * Verifica si se puede cancelar (hay archivos con progreso, pero no ensamblando)
    */
   canCancel() {
     const files = this.files();
+    // No se puede cancelar si algún archivo está ensamblando (fase final)
+    if (files.some(f => f.assembling)) return false;
     return files.some(f => f.uploading || f.paused || f.percent > 0);
   }
 
