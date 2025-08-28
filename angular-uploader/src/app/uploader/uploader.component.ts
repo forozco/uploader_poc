@@ -40,6 +40,10 @@ export class UploaderComponent implements OnDestroy {
   completedFiles = computed(() => this.files().filter(f => f.done).length);
   uploadingFiles = computed(() => this.files().filter(f => f.uploading).length);
   assemblingFiles = computed(() => this.files().filter(f => f.assembling).length);
+  allCompleted = computed(() => {
+    const files = this.files();
+    return files.length > 0 && files.every(f => f.done);
+  });
   globalProgress = computed(() => {
     const files = this.files();
     if (files.length === 0) return 0;
@@ -135,13 +139,35 @@ export class UploaderComponent implements OnDestroy {
   }
 
   /**
-   * Verifica si se puede cancelar (hay archivos con progreso, pero no ensamblando)
+   * Verifica si se puede cancelar (hay archivos con progreso, pero no ensamblando ni todos completados)
    */
   canCancel() {
     const files = this.files();
     // No se puede cancelar si algún archivo está ensamblando (fase final)
     if (files.some(f => f.assembling)) return false;
+    // No se puede cancelar si todos los archivos están completados
+    if (this.allCompleted()) return false;
     return files.some(f => f.uploading || f.paused || f.percent > 0);
+  }
+
+  /**
+   * Verifica si se puede limpiar la UI (hay archivos y todos están completados)
+   */
+  canClear() {
+    return this.allCompleted();
+  }
+
+  // Helpers para controles de archivos individuales
+  canPauseFile(file: FileUploadState): boolean {
+    return file.uploading;
+  }
+
+  canResumeFile(file: FileUploadState): boolean {
+    return file.paused;
+  }
+
+  canDeleteFile(file: FileUploadState): boolean {
+    return !file.uploading && !file.assembling && !file.done;
   }
 
   /**

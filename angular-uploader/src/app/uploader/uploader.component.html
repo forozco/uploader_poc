@@ -71,7 +71,7 @@
               <strong>{{ file.fileName }}</strong>
               <span>({{ humanSize(file.totalBytes) }})</span>
             </div>
-            @if (!file.uploading && !file.assembling && !file.paused) {
+            @if (canDeleteFile(file)) {
               <button 
                 class="btn btn-danger" 
                 (click)="removeFile(i, $event)">
@@ -146,7 +146,12 @@
   <!-- Controles globales -->
   @if (files().length > 0) {
     <div style="margin-top: 20px;">
-      @if (assemblingFiles() > 0) {
+      @if (allCompleted()) {
+        <div class="alert alert-success" style="margin-bottom: 15px;">
+          <strong>🎉 ¡Todos los archivos completados!</strong><br>
+          Todos los archivos se han subido exitosamente. Puedes limpiar la interfaz o agregar más archivos.
+        </div>
+      } @else if (assemblingFiles() > 0) {
         <div class="alert alert-info" style="margin-bottom: 15px;">
           <strong>⚙️ Ensamblando archivos...</strong><br>
           {{ assemblingFiles() }} archivo(s) en fase final de procesamiento. Los controles están deshabilitados durante esta fase.
@@ -155,7 +160,9 @@
       <button class="btn btn-primary" (click)="start()" [disabled]="!canStart()">Subir Todos</button>
       <button class="btn btn-secondary" (click)="pause()" [disabled]="!canPause()">Pausar Todo</button>
       <button class="btn btn-secondary" (click)="resume()" [disabled]="!canResume()">Reanudar Todo</button>
-      <button class="btn btn-danger" (click)="cancel()" [disabled]="!canCancel()">Cancelar Todo</button>
+      @if (!allCompleted()) {
+        <button class="btn btn-danger" (click)="cancel()" [disabled]="!canCancel()">Cancelar Todo</button>
+      }
     </div>
   }
 
