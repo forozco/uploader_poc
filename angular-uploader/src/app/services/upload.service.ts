@@ -1,8 +1,8 @@
 
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpEvent, HttpEventType } from '@angular/common/http';
-import { BehaviorSubject, Observable, from, of } from 'rxjs';
-import { catchError, concatMap, filter, map, mergeMap, toArray, finalize } from 'rxjs/operators';
+import { BehaviorSubject, Observable, from, of, Subject } from 'rxjs';
+import { catchError, concatMap, filter, map, mergeMap, toArray, finalize, takeUntil } from 'rxjs/operators';
 
 /**
  * Respuesta del endpoint de inicialización de subida
@@ -42,6 +42,9 @@ export class UploadService {
   progress$ = new BehaviorSubject<UploadProgress>({ totalBytes: 0, sentBytes: 0, percent: 0 });
   isPaused$  = new BehaviorSubject<boolean>(false);    // Estado de pausa
   isUploading$ = new BehaviorSubject<boolean>(false);  // Estado de subida activa
+  
+  // Subject para cancelar peticiones HTTP activas
+  private cancelSubject = new Subject<void>();
 
   /**
    * Calcula la configuración óptima de subida basada en el tamaño del archivo
@@ -136,15 +139,28 @@ export class UploadService {
   /**
    * Cancela completamente la subida
    *
-   * Pausa la subida y resetea todo el estado a valores iniciales
+   * Aborta todas las peticiones HTTP activas y resetea el estado
    */
   cancel() {
-    this.pause();
+    console.log('Cancelando subida en el servicio...');
+    
+    // Emitir señal de cancelación para abortar todas las peticiones activas
+    this.cancelSubject.next();
+    console.log('Peticiones HTTP canceladas');
+    
+    // Resetear todos los BehaviorSubjects a su estado inicial
+    this.isPaused$.next(false);
     this.isUploading$.next(false);
-    this.progress$.next({ totalBytes: 0, sentBytes: 0, percent: 0 });
-  }
-
-  /**
+    this.progress$.next({ 
+      totalBytes: 0, 
+      sentBytes: 0, 
+      percent: 0,
+      currentSpeedBps: 0,
+      etaSeconds: 0 
+    });
+    
+    console.log('Estado del servicio reseteado completamente');
+  }  /**
    * Método principal para subir archivos usando estrategia multipart
    *
    * Pipeline reactivo que:
@@ -240,6 +256,9 @@ export class UploadService {
     progressCallback: (progress: UploadProgress) => void,
     assemblingCallback?: () => void
   ): Observable<void> {
+    // Crear nuevo subject para cancelación de esta subida específica
+    this.cancelSubject = new Subject<void>();
+    
     // Obtener configuración óptima basada en el tamaño del archivo
     const config = this.getOptimalConfig(file.size);
     const chunkSize = init.recommendedChunkSize || config.chunkSize;
@@ -354,8 +373,9 @@ export class UploadService {
     form.append('fileName', file.name);
     form.append('fileSize', String(file.size));
 
-    // Enviar chunk al servidor con manejo de errores
+    // Enviar chunk al servidor con manejo de errores y cancelación
     return this.http.post(`/api/uploads/${encodeURIComponent(uploadId)}/chunk`, form).pipe(
+      takeUntil(this.cancelSubject), // Se cancela cuando se emite en cancelSubject
       map(() => end - start), // Retornar bytes enviados
       catchError(err => {
         console.error(`Error subiendo chunk ${chunkIndex + 1}/${totalChunks}:`, err);
@@ -396,6 +416,7 @@ export class UploadService {
     return new Observable<number>((subscriber) => {
       setTimeout(() => {
         this.http.post(`/api/uploads/${encodeURIComponent(uploadId)}/chunk`, form).pipe(
+          takeUntil(this.cancelSubject), // Se cancela cuando se emite en cancelSubject
           map(() => chunkSize),
           catchError(err => {
             console.error(`Error en reintento para chunk ${chunkNum}:`, err);
@@ -424,6 +445,8 @@ export class UploadService {
   private complete(uploadId: string, totalChunks: number, fileName: string, mimeType: string) {
     return this.http.post(`/api/uploads/${encodeURIComponent(uploadId)}/complete`, {
       totalChunks, fileName, mimeType
-    });
+    }).pipe(
+      takeUntil(this.cancelSubject) // También se puede cancelar el ensamblado
+    );
   }
 }

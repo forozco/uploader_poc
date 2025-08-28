@@ -276,9 +276,11 @@ export class UploaderComponent implements OnDestroy {
    */
   cancel() {
     console.log('Cancelando todas las subidas...');
+    
+    // Cancelar en el servicio primero
     this.uploadSvc.cancel();
     
-    // Resetear estado de todos los archivos
+    // Resetear estado de todos los archivos completamente
     const files = this.files();
     const updatedFiles = files.map(f => ({
       ...f,
@@ -287,11 +289,18 @@ export class UploaderComponent implements OnDestroy {
       paused: false,
       percent: 0,
       sentBytes: 0,
-      error: null
+      speedBps: undefined,
+      etaSeconds: undefined,
+      error: null,
+      done: false  // Importante: también resetear el estado de completado
     }));
     this.files.set(updatedFiles);
+    
+    // Resetear todos los signals relacionados
     this.globalUploading.set(false);
-    console.log('Todas las subidas canceladas');
+    this.isDragOver.set(false);
+    
+    console.log('Todas las subidas canceladas y estado reseteado completamente');
   }
 
   /**
@@ -334,8 +343,16 @@ export class UploaderComponent implements OnDestroy {
    */
   clearFile(event: Event) {
     event.stopPropagation();
+    
+    // Cancelar cualquier subida en curso antes de limpiar
+    this.uploadSvc.cancel();
+    
+    // Limpiar completamente el estado
     this.files.set([]);
     this.globalUploading.set(false);
+    this.isDragOver.set(false);
+    
+    console.log('Todos los archivos limpiados y estado reseteado');
   }
 
   /**
