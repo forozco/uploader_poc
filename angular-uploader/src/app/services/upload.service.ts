@@ -2,7 +2,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpEvent, HttpEventType } from '@angular/common/http';
 import { BehaviorSubject, Observable, from, of, Subject } from 'rxjs';
-import { catchError, concatMap, filter, map, mergeMap, toArray, finalize, takeUntil } from 'rxjs/operators';
+import { catchError, concatMap, filter, map, mergeMap, toArray, finalize, takeUntil, takeWhile } from 'rxjs/operators';
 
 /**
  * Respuesta del endpoint de inicialización de subida
@@ -43,8 +43,8 @@ export class UploadService {
   isPaused$  = new BehaviorSubject<boolean>(false);    // Estado de pausa
   isUploading$ = new BehaviorSubject<boolean>(false);  // Estado de subida activa
   
-  // Subject para cancelar peticiones HTTP activas
-  private cancelSubject = new Subject<void>();
+  // BehaviorSubject para controlar cancelación de manera más robusta
+  private isCancelled$ = new BehaviorSubject<boolean>(false);
 
   /**
    * Calcula la configuración óptima de subida basada en el tamaño del archivo
@@ -145,8 +145,8 @@ export class UploadService {
     console.log('Cancelando subida en el servicio...');
     
     // Emitir señal de cancelación para abortar todas las peticiones activas
-    this.cancelSubject.next();
-    console.log('Peticiones HTTP canceladas');
+    this.isCancelled$.next(true);
+    console.log('Señal de cancelación emitida');
     
     // Resetear todos los BehaviorSubjects a su estado inicial
     this.isPaused$.next(false);
@@ -160,6 +160,12 @@ export class UploadService {
     });
     
     console.log('Estado del servicio reseteado completamente');
+    
+    // Resetear la cancelación para futuras subidas después de un pequeño delay
+    setTimeout(() => {
+      this.isCancelled$.next(false);
+      console.log('Estado de cancelación reseteado para futuras subidas');
+    }, 100);
   }  /**
    * Método principal para subir archivos usando estrategia multipart
    *
@@ -209,6 +215,8 @@ export class UploadService {
 
     // Pipeline reactivo principal
     return from(chunks).pipe(
+      // IMPORTANTE: usar takeUntil con filter para cancelar todo el pipeline
+      takeUntil(this.isCancelled$.pipe(filter(cancelled => cancelled))),
       // Procesar chunks en paralelo con concurrencia controlada
       mergeMap((idx) => this.uploadSingleChunk(file, init.uploadId, idx, chunkSize, totalChunks, config.retries).pipe(
         map((bytesSent) => {
@@ -256,9 +264,6 @@ export class UploadService {
     progressCallback: (progress: UploadProgress) => void,
     assemblingCallback?: () => void
   ): Observable<void> {
-    // Crear nuevo subject para cancelación de esta subida específica
-    this.cancelSubject = new Subject<void>();
-    
     // Obtener configuración óptima basada en el tamaño del archivo
     const config = this.getOptimalConfig(file.size);
     const chunkSize = init.recommendedChunkSize || config.chunkSize;
@@ -292,6 +297,8 @@ export class UploadService {
 
     // Pipeline reactivo principal con progreso individualizado
     return from(chunks).pipe(
+      // IMPORTANTE: usar takeUntil con filter para cancelar todo el pipeline
+      takeUntil(this.isCancelled$.pipe(filter(cancelled => cancelled))),
       // Procesar chunks en paralelo con concurrencia controlada
       mergeMap((idx) => this.uploadSingleChunk(file, init.uploadId, idx, chunkSize, totalChunks, config.retries).pipe(
         map((bytesSent) => {
@@ -375,7 +382,7 @@ export class UploadService {
 
     // Enviar chunk al servidor con manejo de errores y cancelación
     return this.http.post(`/api/uploads/${encodeURIComponent(uploadId)}/chunk`, form).pipe(
-      takeUntil(this.cancelSubject), // Se cancela cuando se emite en cancelSubject
+      takeUntil(this.isCancelled$.pipe(filter(cancelled => cancelled))), // Se cancela cuando isCancelled$ es true
       map(() => end - start), // Retornar bytes enviados
       catchError(err => {
         console.error(`Error subiendo chunk ${chunkIndex + 1}/${totalChunks}:`, err);
@@ -416,7 +423,7 @@ export class UploadService {
     return new Observable<number>((subscriber) => {
       setTimeout(() => {
         this.http.post(`/api/uploads/${encodeURIComponent(uploadId)}/chunk`, form).pipe(
-          takeUntil(this.cancelSubject), // Se cancela cuando se emite en cancelSubject
+          takeUntil(this.isCancelled$.pipe(filter(cancelled => cancelled))), // Se cancela cuando isCancelled$ es true
           map(() => chunkSize),
           catchError(err => {
             console.error(`Error en reintento para chunk ${chunkNum}:`, err);
@@ -446,7 +453,7 @@ export class UploadService {
     return this.http.post(`/api/uploads/${encodeURIComponent(uploadId)}/complete`, {
       totalChunks, fileName, mimeType
     }).pipe(
-      takeUntil(this.cancelSubject) // También se puede cancelar el ensamblado
+      takeUntil(this.isCancelled$.pipe(filter(cancelled => cancelled))) // También se puede cancelar el ensamblado
     );
   }
 }
