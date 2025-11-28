@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm start)",
+      "Bash(ng serve:*)",
+      "Read(//Users/f_orozco/Documents/INE/frontend/internet/src/app/features/firmado/services/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

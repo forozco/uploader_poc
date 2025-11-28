@@ -13,6 +13,12 @@ export interface InitResponse {
   uploadedChunks?: number[];          // Chunks ya subidos previamente (para reanudar)
 }
 
+export interface CompleteResponse {
+  codigo: number;
+  mensaje: string;
+  detalle: string;
+}
+
 /**
  * Información de progreso de subida en tiempo real
  */
@@ -42,7 +48,7 @@ export class UploadService {
   progress$ = new BehaviorSubject<UploadProgress>({ totalBytes: 0, sentBytes: 0, percent: 0 });
   isPaused$  = new BehaviorSubject<boolean>(false);    // Estado de pausa
   isUploading$ = new BehaviorSubject<boolean>(false);  // Estado de subida activa
-  
+
   // BehaviorSubject para controlar cancelación de manera más robusta
   private isCancelled$ = new BehaviorSubject<boolean>(false);
 
@@ -149,24 +155,24 @@ export class UploadService {
    */
   cancel() {
     console.log('Cancelando subida en el servicio...');
-    
+
     // Emitir señal de cancelación para abortar todas las peticiones activas
     this.isCancelled$.next(true);
     console.log('Señal de cancelación emitida');
-    
+
     // Resetear todos los BehaviorSubjects a su estado inicial
     this.isPaused$.next(false);
     this.isUploading$.next(false);
-    this.progress$.next({ 
-      totalBytes: 0, 
-      sentBytes: 0, 
+    this.progress$.next({
+      totalBytes: 0,
+      sentBytes: 0,
       percent: 0,
       currentSpeedBps: 0,
-      etaSeconds: 0 
+      etaSeconds: 0
     });
-    
+
     console.log('Estado del servicio reseteado completamente');
-    
+
     // Resetear la cancelación para futuras subidas después de un pequeño delay
     setTimeout(() => {
       this.isCancelled$.next(false);
@@ -203,6 +209,7 @@ export class UploadService {
     const startTime = Date.now();
     const totalBytes = file.size;
     let sentBytes = (uploadedSet.size * chunkSize);
+    let directory = crypto.randomUUID();
 
     console.log(`Archivo: ${file.name}`);
     console.log(`Tamaño: ${(totalBytes / (1024 * 1024)).toFixed(2)} MB`);
@@ -244,7 +251,7 @@ export class UploadService {
         })
       ), config.concurrency),
       toArray(), // Esperar a que todos los chunks terminen
-      concatMap(() => this.complete(init.uploadId, totalChunks, file.name, file.type)), // Ensamblar archivo final
+      concatMap(() => this.complete(init.uploadId, totalChunks, file.name, file.type, directory)), // Ensamblar archivo final
       finalize(() => {
         // Cleanup: resetear estado cuando termine (éxito o error)
         this.isUploading$.next(false);
@@ -265,82 +272,87 @@ export class UploadService {
    * @returns Observable que completa cuando el archivo está totalmente subido
    */
   uploadFileMultipartWithProgress(
-    file: File,
-    init: InitResponse,
-    progressCallback: (progress: UploadProgress) => void,
-    assemblingCallback?: () => void
-  ): Observable<void> {
-    // Obtener configuración óptima basada en el tamaño del archivo
-    const config = this.getOptimalConfig(file.size);
-    const chunkSize = init.recommendedChunkSize || config.chunkSize;
-    const totalChunks = Math.ceil(file.size / chunkSize);
-    const uploadedSet = new Set(init.uploadedChunks || []);
-    const chunks: number[] = [];
+  file: File,
+  init: InitResponse,
+  progressCallback: (progress: UploadProgress) => void,
+  assemblingCallback?: () => void
+): Observable<CompleteResponse> {
+  // Obtener configuración óptima basada en el tamaño del archivo
+  const config = this.getOptimalConfig(file.size);
+  const chunkSize = init.recommendedChunkSize || config.chunkSize;
+  const totalChunks = Math.ceil(file.size / chunkSize);
+  const uploadedSet = new Set(init.uploadedChunks || []);
+  const chunks: number[] = [];
 
-    // Crear lista de chunks pendientes (excluir los ya subidos)
-    for (let i = 0; i < totalChunks; i++) {
-      if (!uploadedSet.has(i)) chunks.push(i);
-    }
-
-    // Inicializar métricas de progreso individuales para este archivo
-    const startTime = Date.now();
-    const totalBytes = file.size;
-    let sentBytes = (uploadedSet.size * chunkSize);
-
-    console.log(`Archivo individual: ${file.name}`);
-    console.log(`Tamaño: ${(totalBytes / (1024 * 1024)).toFixed(2)} MB`);
-    console.log(`Configuración: Chunks de ${(chunkSize / (1024 * 1024)).toFixed(2)} MB, Concurrencia: ${config.concurrency}`);
-    console.log(`Chunks pendientes: ${chunks.length}/${totalChunks} (${uploadedSet.size} ya subidos)`);
-
-    if (uploadedSet.size === totalChunks) {
-      console.log(`Archivo ya completamente subido`);
-      progressCallback({ totalBytes, sentBytes: totalBytes, percent: 100 });
-      return of(void 0);
-    }
-
-    // Notificar progreso inicial
-    progressCallback({ totalBytes, sentBytes, percent: Math.min(99, Math.floor((sentBytes / totalBytes) * 100)) });
-
-    // Pipeline reactivo principal con progreso individualizado
-    return from(chunks).pipe(
-      // IMPORTANTE: usar takeUntil con filter para cancelar todo el pipeline
-      takeUntil(this.isCancelled$.pipe(filter(cancelled => cancelled))),
-      // Procesar chunks en paralelo con concurrencia controlada
-      mergeMap((idx) => this.uploadSingleChunk(file, init.uploadId, idx, chunkSize, totalChunks, config.retries).pipe(
-        map((bytesSent) => {
-          sentBytes += bytesSent;
-          const elapsed = (Date.now() - startTime) / 1000;
-          const speed = elapsed > 0 ? sentBytes / elapsed : undefined;
-          const remaining = totalBytes - sentBytes;
-          const eta = speed ? remaining / speed : undefined;
-
-          // Llamar callback de progreso individual (NO actualizar progress$ global)
-          progressCallback({
-            totalBytes,
-            sentBytes,
-            percent: Math.min(99, Math.floor((sentBytes / totalBytes) * 100)),
-            currentSpeedBps: speed,
-            etaSeconds: eta,
-          });
-          return bytesSent;
-        })
-      ), config.concurrency),
-      toArray(), // Esperar a que todos los chunks terminen
-      concatMap(() => {
-        // Notificar que comienza el ensamblado
-        console.log(`Ensamblando archivo: ${file.name}`);
-        if (assemblingCallback) {
-          assemblingCallback();
-        }
-        return this.complete(init.uploadId, totalChunks, file.name, file.type);
-      }), // Ensamblar archivo final
-      finalize(() => {
-        // Notificar progreso final de este archivo específico
-        progressCallback({ totalBytes, sentBytes: totalBytes, percent: 100 });
-      }),
-      map(() => void 0)
-    );
+  // Crear lista de chunks pendientes (excluir los ya subidos)
+  for (let i = 0; i < totalChunks; i++) {
+    if (!uploadedSet.has(i)) chunks.push(i);
   }
+
+  // Inicializar métricas de progreso individuales para este archivo
+  const startTime = Date.now();
+  const totalBytes = file.size;
+  let sentBytes = (uploadedSet.size * chunkSize);
+  let directory = crypto.randomUUID();
+
+  console.log(`Archivo individual: ${file.name}`);
+  console.log(`Tamaño: ${(totalBytes / (1024 * 1024)).toFixed(2)} MB`);
+  console.log(`Configuración: Chunks de ${(chunkSize / (1024 * 1024)).toFixed(2)} MB, Concurrencia: ${config.concurrency}`);
+  console.log(`Chunks pendientes: ${chunks.length}/${totalChunks} (${uploadedSet.size} ya subidos)`);
+
+  if (uploadedSet.size === totalChunks) {
+  console.log(`Archivo ya completamente subido`);
+  progressCallback({ totalBytes, sentBytes: totalBytes, percent: 100 });
+  return of({
+    codigo: 0,
+    mensaje: 'Éxito',
+    detalle: 'Archivo ya estaba completamente subido'
+  });
+}
+
+  // Notificar progreso inicial
+  progressCallback({ totalBytes, sentBytes, percent: Math.min(99, Math.floor((sentBytes / totalBytes) * 100)) });
+
+  // Pipeline reactivo principal con progreso individualizado
+  return from(chunks).pipe(
+    // IMPORTANTE: usar takeUntil con filter para cancelar todo el pipeline
+    takeUntil(this.isCancelled$.pipe(filter(cancelled => cancelled))),
+    // Procesar chunks en paralelo con concurrencia controlada
+    mergeMap((idx) => this.uploadSingleChunk(file, init.uploadId, idx, chunkSize, totalChunks, config.retries).pipe(
+      map((bytesSent) => {
+        sentBytes += bytesSent;
+        const elapsed = (Date.now() - startTime) / 1000;
+        const speed = elapsed > 0 ? sentBytes / elapsed : undefined;
+        const remaining = totalBytes - sentBytes;
+        const eta = speed ? remaining / speed : undefined;
+
+        // Llamar callback de progreso individual (NO actualizar progress$ global)
+        progressCallback({
+          totalBytes,
+          sentBytes,
+          percent: Math.min(99, Math.floor((sentBytes / totalBytes) * 100)),
+          currentSpeedBps: speed,
+          etaSeconds: eta,
+        });
+        return bytesSent;
+      })
+    ), config.concurrency),
+    toArray(), // Esperar a que todos los chunks terminen
+    concatMap(() => {
+      // Notificar que comienza el ensamblado
+      console.log(`Ensamblando archivo: ${file.name}`);
+      if (assemblingCallback) {
+        assemblingCallback();
+      }
+      return this.complete(init.uploadId, totalChunks, file.name, file.type, directory);
+    }), // Ensamblar archivo final
+    map((response: CompleteResponse) => response), // ← LÍNEA MODIFICADA
+    finalize(() => {
+      // Notificar progreso final de este archivo específico
+      progressCallback({ totalBytes, sentBytes: totalBytes, percent: 100 });
+    })
+  );
+}
 
   /**
    * Sube un chunk individual del archivo
@@ -370,7 +382,7 @@ export class UploadService {
             subscriber.complete();
             return;
           }
-          
+
           if (!this.isPaused$.value) {
             clearInterval(check);
             // Recursión reactiva: volver a intentar cuando se reanude, con cancelación aplicada
@@ -379,7 +391,7 @@ export class UploadService {
             ).subscribe(subscriber);
           }
         }, UPLOAD_CONFIG.PAUSE_CHECK_INTERVAL);
-        
+
         // Limpiar el intervalo cuando el Observable se cancele
         return () => clearInterval(check);
       }).pipe(
@@ -447,14 +459,14 @@ export class UploadService {
         subscriber.complete();
         return;
       }
-      
+
       const timeoutId = setTimeout(() => {
         // Verificar cancelación antes de hacer la petición HTTP
         if (this.isCancelled$.value) {
           subscriber.complete();
           return;
         }
-        
+
         this.http.post(`/api/uploads/${encodeURIComponent(uploadId)}/chunk`, form).pipe(
           takeUntil(this.isCancelled$.pipe(filter(cancelled => cancelled))), // Se cancela cuando isCancelled$ es true
           map(() => chunkSize),
@@ -465,7 +477,7 @@ export class UploadService {
           })
         ).subscribe(subscriber);
       }, delay);
-      
+
       // Limpiar el timeout si el Observable se cancela
       return () => clearTimeout(timeoutId);
     }).pipe(
@@ -488,9 +500,9 @@ export class UploadService {
    * @param mimeType - Tipo MIME del archivo
    * @returns Observable que completa cuando el archivo está ensamblado
    */
-  private complete(uploadId: string, totalChunks: number, fileName: string, mimeType: string) {
-    return this.http.post(`/api/uploads/${encodeURIComponent(uploadId)}/complete`, {
-      totalChunks, fileName, mimeType
+  private complete(uploadId: string, totalChunks: number, fileName: string, mimeType: string, directory: string): Observable<CompleteResponse> {
+    return this.http.post<CompleteResponse>(`/api/uploads/${encodeURIComponent(uploadId)}/complete`, {
+      totalChunks, fileName, mimeType, directory
     }).pipe(
       takeUntil(this.isCancelled$.pipe(filter(cancelled => cancelled))) // También se puede cancelar el ensamblado
     );
