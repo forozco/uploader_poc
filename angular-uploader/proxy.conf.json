@@ -1,6 +1,6 @@
 {
   "/api": {
-    "target": "http://localhost:3000",
+    "target": "http://dev.api.kuadrant.local:30289",
     "secure": false,
     "changeOrigin": true
   }

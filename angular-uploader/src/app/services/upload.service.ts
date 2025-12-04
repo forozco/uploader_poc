@@ -116,11 +116,27 @@ export class UploadService {
    * @returns Observable con la respuesta de inicialización
    */
   initUpload(file: File) {
-    return this.http.post<InitResponse>('/api/uploads/init', {
+    const payload = {
       fileName: file.name,
       fileSize: file.size,
       mimeType: file.type,
-    });
+    };
+    
+    console.log('Enviando payload a http://dev.api.kuadrant.local:30289/archivo/init:', payload);
+    
+    return this.http.post<InitResponse>('http://dev.api.kuadrant.local:30289/archivo/init', payload).pipe(
+      map(response => {
+        console.log('Respuesta del servidor:', response);
+        return response;
+      }),
+      catchError(error => {
+        console.error('Error en initUpload:', error);
+        console.error('Error status:', error.status);
+        console.error('Error message:', error.message);
+        console.error('Error body:', error.error);
+        throw error;
+      })
+    );
   }
 
   /**
@@ -414,7 +430,7 @@ export class UploadService {
     form.append('fileSize', String(file.size));
 
     // Enviar chunk al servidor con manejo de errores y cancelación
-    return this.http.post(`/api/uploads/${encodeURIComponent(uploadId)}/chunk`, form).pipe(
+    return this.http.post(`http://dev.api.kuadrant.local:30289/archivo/${encodeURIComponent(uploadId)}/chunk`, form).pipe(
       takeUntil(this.isCancelled$.pipe(filter(cancelled => cancelled))), // Se cancela cuando isCancelled$ es true
       map(() => end - start), // Retornar bytes enviados
       catchError(err => {
@@ -467,7 +483,7 @@ export class UploadService {
           return;
         }
 
-        this.http.post(`/api/uploads/${encodeURIComponent(uploadId)}/chunk`, form).pipe(
+        this.http.post(`http://dev.api.kuadrant.local:30289/archivo/${encodeURIComponent(uploadId)}/chunk`, form).pipe(
           takeUntil(this.isCancelled$.pipe(filter(cancelled => cancelled))), // Se cancela cuando isCancelled$ es true
           map(() => chunkSize),
           catchError(err => {
@@ -501,7 +517,7 @@ export class UploadService {
    * @returns Observable que completa cuando el archivo está ensamblado
    */
   private complete(uploadId: string, totalChunks: number, fileName: string, mimeType: string, directory: string): Observable<CompleteResponse> {
-    return this.http.post<CompleteResponse>(`/api/uploads/${encodeURIComponent(uploadId)}/complete`, {
+    return this.http.post<CompleteResponse>(`http://dev.api.kuadrant.local:30289/archivo/${encodeURIComponent(uploadId)}/complete`, {
       totalChunks, fileName, mimeType, directory
     }).pipe(
       takeUntil(this.isCancelled$.pipe(filter(cancelled => cancelled))) // También se puede cancelar el ensamblado
