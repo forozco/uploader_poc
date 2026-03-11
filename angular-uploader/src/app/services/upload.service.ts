@@ -106,12 +106,13 @@ export class UploadService {
    * @param file - Archivo a subir
    * @returns Observable con la respuesta de inicialización
    */
-  initUpload(file: File) {
+  initUpload(file: File, token?: string) {
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
     return this.http.post<InitResponse>('/api/uploads/init', {
       fileName: file.name,
       fileSize: file.size,
       mimeType: file.type,
-    });
+    }, { headers });
   }
 
   /**
@@ -158,7 +159,7 @@ export class UploadService {
    * @param init - Respuesta de inicialización con uploadId y chunks previos
    * @returns Observable que completa cuando el archivo está totalmente subido
    */
-  uploadFileMultipart(file: File, init: InitResponse): Observable<void> {
+  uploadFileMultipart(file: File, init: InitResponse, token?: string): Observable<void> {
     // Obtener configuración óptima basada en el tamaño del archivo
     const config = this.getOptimalConfig(file.size);
     const chunkSize = init.recommendedChunkSize || config.chunkSize;
@@ -194,7 +195,7 @@ export class UploadService {
     // Pipeline reactivo principal
     return from(chunks).pipe(
       // Procesar chunks en paralelo con concurrencia controlada
-      mergeMap((idx) => this.uploadSingleChunk(file, init.uploadId, idx, chunkSize, totalChunks, config.retries).pipe(
+      mergeMap((idx) => this.uploadSingleChunk(file, init.uploadId, idx, chunkSize, totalChunks, config.retries, token).pipe(
         map((bytesSent) => {
           sentBytes += bytesSent;
           const elapsed = (Date.now() - startTime) / 1000;
@@ -214,7 +215,7 @@ export class UploadService {
         })
       ), config.concurrency),
       toArray(), // Esperar a que todos los chunks terminen
-      concatMap(() => this.complete(init.uploadId, totalChunks, file.name, file.type)), // Ensamblar archivo final
+      concatMap(() => this.complete(init.uploadId, totalChunks, file.name, file.type, token)), // Ensamblar archivo final
       finalize(() => {
         // Cleanup: resetear estado cuando termine (éxito o error)
         this.isUploading$.next(false);
@@ -241,7 +242,7 @@ export class UploadService {
    * @param maxRetries - Número máximo de reintentos en caso de error
    * @returns Observable con el número de bytes enviados
    */
-  private uploadSingleChunk(file: File, uploadId: string, chunkIndex: number, chunkSize: number, totalChunks: number, maxRetries = 3): Observable<number> {
+  private uploadSingleChunk(file: File, uploadId: string, chunkIndex: number, chunkSize: number, totalChunks: number, maxRetries = 3, token?: string): Observable<number> {
     // Verificar si la subida está pausada
     if (this.isPaused$.value) {
       return new Observable<number>((subscriber) => {
@@ -268,12 +269,14 @@ export class UploadService {
     form.append('fileName', file.name);
     form.append('fileSize', String(file.size));
 
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
     // Enviar chunk al servidor con manejo de errores
-    return this.http.post(`/api/uploads/${encodeURIComponent(uploadId)}/chunk`, form).pipe(
+    return this.http.post(`/api/uploads/${encodeURIComponent(uploadId)}/chunk`, form, { headers }).pipe(
       map(() => end - start), // Retornar bytes enviados
       catchError(err => {
         console.error(`Error subiendo chunk ${chunkIndex + 1}/${totalChunks}:`, err);
-        return this.retryChunkUpload(uploadId, form, end - start, maxRetries, chunkIndex + 1, totalChunks);
+        return this.retryChunkUpload(uploadId, form, end - start, maxRetries, chunkIndex + 1, totalChunks, token);
       })
     );
   }
@@ -295,7 +298,7 @@ export class UploadService {
    * @param totalChunks - Total de chunks (para calcular delay)
    * @returns Observable con bytes enviados o error si se agotan reintentos
    */
-  private retryChunkUpload(uploadId: string, form: FormData, chunkSize: number, retriesLeft: number, chunkNum: number, totalChunks: number): Observable<number> {
+  private retryChunkUpload(uploadId: string, form: FormData, chunkSize: number, retriesLeft: number, chunkNum: number, totalChunks: number, token?: string): Observable<number> {
     if (retriesLeft <= 0) {
       console.error(`Fallo definitivo en chunk ${chunkNum}/${totalChunks} después de todos los reintentos`);
       throw new Error(`Failed to upload chunk ${chunkNum} after all retries`);
@@ -303,18 +306,17 @@ export class UploadService {
 
     console.log(`Reintentando chunk ${chunkNum}/${totalChunks} (${retriesLeft} intentos restantes)`);
 
-    // Delay progresivo: más delay entre reintentos + extra para archivos grandes
-    const delay = (5 - retriesLeft) * UPLOAD_CONFIG.BASE_RETRY_DELAY + 
+    const delay = (5 - retriesLeft) * UPLOAD_CONFIG.BASE_RETRY_DELAY +
                   (totalChunks > 100 ? UPLOAD_CONFIG.LARGE_FILE_EXTRA_DELAY : 0);
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
 
     return new Observable<number>((subscriber) => {
       setTimeout(() => {
-        this.http.post(`/api/uploads/${encodeURIComponent(uploadId)}/chunk`, form).pipe(
+        this.http.post(`/api/uploads/${encodeURIComponent(uploadId)}/chunk`, form, { headers }).pipe(
           map(() => chunkSize),
           catchError(err => {
             console.error(`Error en reintento para chunk ${chunkNum}:`, err);
-            // Recursión reactiva: intentar de nuevo con menos reintentos
-            return this.retryChunkUpload(uploadId, form, chunkSize, retriesLeft - 1, chunkNum, totalChunks);
+            return this.retryChunkUpload(uploadId, form, chunkSize, retriesLeft - 1, chunkNum, totalChunks, token);
           })
         ).subscribe(subscriber);
       }, delay);
@@ -335,9 +337,10 @@ export class UploadService {
    * @param mimeType - Tipo MIME del archivo
    * @returns Observable que completa cuando el archivo está ensamblado
    */
-  private complete(uploadId: string, totalChunks: number, fileName: string, mimeType: string) {
+  private complete(uploadId: string, totalChunks: number, fileName: string, mimeType: string, token?: string) {
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
     return this.http.post(`/api/uploads/${encodeURIComponent(uploadId)}/complete`, {
       totalChunks, fileName, mimeType
-    });
+    }, { headers });
   }
 }

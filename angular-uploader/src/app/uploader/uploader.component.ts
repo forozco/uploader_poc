@@ -1,6 +1,7 @@
 
 import { Component, signal, inject, OnDestroy } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 // RXJS ASYNC: Operadores para programación reactiva asíncrona
 import { concatMap } from 'rxjs/operators';  // Secuencia async manteniendo orden
 import { UploadService } from '../services/upload.service';
@@ -8,7 +9,7 @@ import { UploadService } from '../services/upload.service';
 @Component({
   selector: 'app-uploader',
   standalone: true,
-  imports: [DecimalPipe],
+  imports: [DecimalPipe, FormsModule],
   templateUrl: './uploader.component.html',
   styleUrl: './uploader.component.css'
 })
@@ -29,6 +30,7 @@ export class UploaderComponent implements OnDestroy {
   done = signal<boolean>(false);           // Estado: completado
   error = signal<string | null>(null);     // Mensaje de error
   isDragOver = signal<boolean>(false);     // Estado: arrastrando archivo
+  token = signal<string>('');              // Token temporal de autorización
 
   constructor() {
     // ASINCRONÍA REACTIVA: Suscripciones a streams de datos en tiempo real
@@ -100,9 +102,10 @@ export class UploaderComponent implements OnDestroy {
     this.done.set(false);
     
     // ASYNC: Observable pipeline - operaciones no bloqueantes
-    this.uploadSvc.initUpload(this.file).pipe(
+    const token = this.token() || undefined;
+    this.uploadSvc.initUpload(this.file, token).pipe(
       // ASYNC: concatMap mantiene orden secuencial pero procesa async
-      concatMap(init => this.uploadSvc.uploadFileMultipart(this.file!, init))
+      concatMap(init => this.uploadSvc.uploadFileMultipart(this.file!, init, token))
     ).subscribe({
       // ASYNC: Manejo de errores asincrónicos
       error: (err) => this.error.set(err?.message || 'Fallo subiendo'),

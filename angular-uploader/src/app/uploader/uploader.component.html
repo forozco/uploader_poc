@@ -85,6 +85,12 @@
     </div>
   }
 
+  <!-- Token de autorización (opcional) -->
+  <div>
+    <label>Token temporal (opcional):</label>
+    <input type="text" [ngModel]="token()" (ngModelChange)="token.set($event)" placeholder="Bearer token..." />
+  </div>
+
   <!-- Controles de subida -->
   <div>
     <button (click)="start()" [disabled]="!canStart()">Subir</button>
