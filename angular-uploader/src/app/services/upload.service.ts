@@ -107,7 +107,7 @@ export class UploadService {
    * @returns Observable con la respuesta de inicialización
    */
   initUpload(file: File, token?: string) {
-    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+    const headers: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
     return this.http.post<InitResponse>('/api/uploads/init', {
       fileName: file.name,
       fileSize: file.size,
@@ -269,7 +269,7 @@ export class UploadService {
     form.append('fileName', file.name);
     form.append('fileSize', String(file.size));
 
-    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+    const headers: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
 
     // Enviar chunk al servidor con manejo de errores
     return this.http.post(`/api/uploads/${encodeURIComponent(uploadId)}/chunk`, form, { headers }).pipe(
@@ -308,7 +308,7 @@ export class UploadService {
 
     const delay = (5 - retriesLeft) * UPLOAD_CONFIG.BASE_RETRY_DELAY +
                   (totalChunks > 100 ? UPLOAD_CONFIG.LARGE_FILE_EXTRA_DELAY : 0);
-    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+    const headers: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
 
     return new Observable<number>((subscriber) => {
       setTimeout(() => {
@@ -338,7 +338,7 @@ export class UploadService {
    * @returns Observable que completa cuando el archivo está ensamblado
    */
   private complete(uploadId: string, totalChunks: number, fileName: string, mimeType: string, token?: string) {
-    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+    const headers: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
     return this.http.post(`/api/uploads/${encodeURIComponent(uploadId)}/complete`, {
       totalChunks, fileName, mimeType
     }, { headers });
